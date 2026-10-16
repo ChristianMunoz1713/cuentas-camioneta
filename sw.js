@@ -1,5 +1,5 @@
 // Service worker: permite instalar la app y abrirla sin internet (con los últimos datos guardados).
-const CACHE = 'cuentas-camioneta-v1';
+const CACHE = 'cuentas-camioneta-v2';
 const ARCHIVOS = ['./', 'index.html', 'styles.css', 'app.js', 'config.js', 'manifest.webmanifest',
   'icons/icon-192.png', 'icons/icon-512.png', 'icons/icon-maskable-512.png'];
 
