@@ -1,0 +1,193 @@
+<!doctype html>
+<html lang="es">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+  <title>Cuentas de la Camioneta</title>
+  <meta name="description" content="Cuentas, gastos, deudas de choferes y reparaciones de la camioneta">
+  <meta name="theme-color" content="#101716">
+  <link rel="manifest" href="manifest.webmanifest">
+  <link rel="icon" href="icons/icon-192.png" type="image/png">
+  <link rel="apple-touch-icon" href="icons/icon-192.png">
+  <meta name="apple-mobile-web-app-capable" content="yes">
+  <meta name="apple-mobile-web-app-title" content="Camioneta">
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Barlow+Condensed:wght@500;600;700&family=Barlow:wght@400;500;600&display=swap">
+  <link rel="stylesheet" href="styles.css">
+</head>
+<body>
+
+<!-- Inicio de sesión -->
+<div class="login" id="pantallaLogin" hidden>
+  <section class="card">
+    <div class="sign"><div class="lbl">Camioneta</div><div class="saldo">Cuentas</div></div>
+    <form id="loginForm" novalidate>
+      <label>Usuario<input id="lUsuario" type="text" autocomplete="username" autocapitalize="none" spellcheck="false"></label>
+      <label>Contraseña<input id="lClave" type="password" autocomplete="current-password"></label>
+      <label id="lCodigoWrap" hidden>Código de instalación<input id="lCodigo" type="text" inputmode="numeric" autocomplete="one-time-code" placeholder="6 dígitos de la hoja de Google"></label>
+      <p class="ayuda" id="lAyudaCodigo" hidden>Primera vez: el usuario y la contraseña que escribas aquí quedan como los del dueño.</p>
+      <div class="acciones"><button class="btn" type="submit" id="lEntrar">Entrar</button></div>
+      <div class="msg" id="lMsg" role="status"></div>
+    </form>
+  </section>
+</div>
+
+<!-- App -->
+<div class="wrap" id="pantallaApp" hidden>
+  <header class="top">
+    <h1>Cuentas de la Camioneta</h1>
+    <span class="rol" id="rol">—</span>
+  </header>
+  <div class="estado" id="estado"></div>
+
+  <section class="sign" aria-live="polite">
+    <div class="lbl">Saldo disponible</div>
+    <div class="saldo num" id="saldo">$—</div>
+    <div class="meta">
+      <span id="tIniWrap" hidden>Saldo inicial <b class="num" id="tIni">—</b></span>
+      <span>Entradas totales <b class="num" id="tIn">—</b></span>
+      <span>Gastos totales <b class="num" id="tOut">—</b></span>
+      <span>Choferes deben <b class="num debe" id="tDebe">—</b></span>
+    </div>
+  </section>
+
+  <div class="acciones" id="iniBtnWrap"><button class="btn sec chico" type="button" id="iniBtn">Poner saldo inicial</button></div>
+
+  <section class="card" id="iniCard" hidden>
+    <h2>Saldo inicial</h2>
+    <p class="ayuda">El dinero que ya había en la caja antes de empezar a registrar. Se suma al saldo disponible, pero no cuenta como entrada del periodo.</p>
+    <form id="iniForm" novalidate>
+      <div class="fila">
+        <label>Monto (MXN)<input id="iniMonto" class="grande" type="number" inputmode="decimal" step="0.01" placeholder="0.00"></label>
+        <label>A partir de la fecha<input id="iniFecha" type="date"></label>
+      </div>
+      <div class="acciones">
+        <button class="btn" type="submit">Guardar saldo inicial</button>
+        <button class="btn sec" type="button" id="iniCancelar">Cancelar</button>
+        <button class="btn sec" type="button" id="iniQuitar" hidden>Quitar</button>
+      </div>
+      <div class="msg" id="iniMsg" role="status"></div>
+    </form>
+  </section>
+
+  <section class="card" id="captura">
+    <h2 id="formTitulo">Registrar movimiento</h2>
+    <form id="form" novalidate>
+      <div class="seg tipo" role="group" aria-label="Tipo de movimiento">
+        <button type="button" data-v="ingreso" aria-pressed="true">Entrada</button>
+        <button type="button" data-v="gasto" aria-pressed="false">Gasto</button>
+        <button type="button" data-v="adeudo" aria-pressed="false">Deuda de chofer</button>
+        <button type="button" data-v="abono" aria-pressed="false">Pago de deuda</button>
+        <button type="button" data-v="reparacion" aria-pressed="false">Reparación</button>
+      </div>
+      <p class="ayuda" id="ayuda"></p>
+
+      <label id="fChofer" hidden>Chofer<input id="chofer" type="text" maxlength="60" list="choferesUsados" autocomplete="off" placeholder="Nombre del chofer"></label>
+      <datalist id="choferesUsados"></datalist>
+
+      <div class="fila" id="fCuenta" hidden>
+        <label>Debía entregar<input id="esperado" class="grande" type="number" inputmode="decimal" min="0" step="0.01" placeholder="0.00"></label>
+        <label>Entregó<input id="entregado" class="grande" type="number" inputmode="decimal" min="0" step="0.01" placeholder="0.00"></label>
+      </div>
+      <div class="calc" id="calc" hidden></div>
+
+      <div class="fila">
+        <label id="fMonto"><span id="lblMonto">Monto (MXN)</span><input id="monto" class="grande" type="number" inputmode="decimal" min="0" step="0.01" placeholder="0.00"></label>
+        <label>Fecha<input id="fecha" type="date" required></label>
+      </div>
+      <label><span id="lblConcepto">Concepto</span><input id="categoria" type="text" maxlength="80" list="conceptosUsados" autocomplete="off"></label>
+      <datalist id="conceptosUsados"></datalist>
+      <div class="fila" id="fTaller" hidden>
+        <label>Taller o mecánico (opcional)<input id="taller" type="text" maxlength="60" list="talleresUsados" autocomplete="off" placeholder="Ej. Taller Hernández"></label>
+        <label>Kilometraje (opcional)<input id="km" type="number" inputmode="numeric" min="0" step="1" placeholder="Ej. 152300"></label>
+      </div>
+      <datalist id="talleresUsados"></datalist>
+      <label class="check" id="fCaja" hidden><input id="deCaja" type="checkbox" checked> Se pagó con dinero de la caja (se resta del saldo)</label>
+      <label>Nota (opcional)<input id="nota" type="text" maxlength="140" placeholder="Ej. vuelta de la tarde"></label>
+      <div class="acciones">
+        <button class="btn" type="submit" id="guardar">Guardar</button>
+        <button class="btn sec" type="button" id="cancelar" hidden>Cancelar edición</button>
+      </div>
+      <div class="msg" id="msg" role="status"></div>
+    </form>
+  </section>
+
+  <section class="card">
+    <div class="top"><h2>Deudas de choferes</h2><span class="sub">Pendiente por cobrar</span></div>
+    <div class="deudas" id="deudas"></div>
+  </section>
+
+  <section class="card">
+    <div class="top"><h2>Reparaciones y mantenimiento</h2><span class="sub" id="repUltimo"></span></div>
+    <div class="totales">
+      <div class="tot"><span>Este año</span><b class="num" id="repAnio">$0</b></div>
+      <div class="tot"><span>Desde el inicio</span><b class="num" id="repTotal">$0</b></div>
+      <div class="tot"><span>Reparaciones</span><b class="num" id="repNum">0</b></div>
+    </div>
+    <div class="reps" id="reps"></div>
+    <div class="acciones" id="repMasWrap" hidden><button class="btn sec chico" type="button" id="repMas">Ver todas</button></div>
+  </section>
+
+  <section class="card">
+    <div class="top"><h2>Resumen</h2></div>
+    <div class="seg" role="group" aria-label="Periodo" id="periodo">
+      <button type="button" data-v="hoy" aria-pressed="false">Hoy</button>
+      <button type="button" data-v="semana" aria-pressed="false">7 días</button>
+      <button type="button" data-v="mes" aria-pressed="true">Este mes</button>
+      <button type="button" data-v="todo" aria-pressed="false">Todo</button>
+    </div>
+    <div class="totales">
+      <div class="tot"><span>Entradas</span><b class="num in" id="pIn">$0</b></div>
+      <div class="tot"><span>Gastos</span><b class="num out" id="pOut">$0</b></div>
+      <div class="tot"><span>Utilidad</span><b class="num" id="pNet">$0</b></div>
+    </div>
+    <div class="sub" id="pDebe" hidden></div>
+    <div id="barsWrap" hidden>
+      <div class="sub" style="margin-bottom:8px">Gastos por concepto</div>
+      <div class="bars" id="bars"></div>
+    </div>
+  </section>
+
+  <section class="card">
+    <h2>Movimientos</h2>
+    <div id="lista"></div>
+  </section>
+
+  <section class="card ajustes">
+    <h2>Ajustes</h2>
+    <div class="bloque">
+      <h3>Tu sesión</h3>
+      <p class="ayuda" id="ajSesion"></p>
+      <div class="acciones">
+        <button class="btn sec chico" type="button" id="btnInstalar" hidden>Instalar app</button>
+        <button class="btn sec chico" type="button" id="btnSalir">Cerrar sesión</button>
+      </div>
+      <p class="ayuda" id="ayudaIos" hidden>En iPhone: toca Compartir y luego "Agregar a pantalla de inicio".</p>
+    </div>
+    <form class="bloque" id="claveForm" novalidate>
+      <h3>Cambiar mi contraseña</h3>
+      <div class="fila">
+        <label>Contraseña actual<input id="cActual" type="password" autocomplete="current-password"></label>
+        <label>Contraseña nueva<input id="cNueva" type="password" autocomplete="new-password" placeholder="Mínimo 8 caracteres"></label>
+      </div>
+      <div class="acciones"><button class="btn sec chico" type="submit">Cambiar contraseña</button></div>
+      <div class="msg" id="cMsg" role="status"></div>
+    </form>
+    <form class="bloque" id="adminForm" novalidate hidden>
+      <h3>Usuario del administrador</h3>
+      <p class="ayuda" id="adminAyuda">Crea el usuario con el que tu administrador va a registrar las cuentas y los gastos.</p>
+      <div class="fila">
+        <label>Usuario<input id="aUsuario" type="text" autocomplete="off" autocapitalize="none" spellcheck="false" placeholder="Ej. admin"></label>
+        <label>Contraseña<input id="aClave" type="password" autocomplete="new-password" placeholder="Mínimo 8 caracteres"></label>
+      </div>
+      <div class="acciones"><button class="btn sec chico" type="submit">Guardar administrador</button></div>
+      <div class="msg" id="aMsg" role="status"></div>
+    </form>
+  </section>
+</div>
+
+<script src="config.js"></script>
+<script src="app.js"></script>
+</body>
+</html>
