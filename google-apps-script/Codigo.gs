@@ -15,9 +15,10 @@
  */
 
 const COLUMNAS = ['id', 'tipo', 'fecha', 'monto', 'categoria', 'chofer', 'nota', 'taller', 'km', 'deCaja',
-  'esperado', 'entregado', 'ligado', 'autor', 'creado', 'editado'];
+  'esperado', 'entregado', 'ligado', 'autor', 'creado', 'editado', 'pagoDueno'];
 const NUMERICOS = ['monto', 'km', 'esperado', 'entregado'];
-const TIPOS = ['ingreso', 'gasto', 'adeudo', 'abono', 'reparacion', 'inicial'];
+// reembolso: dinero que sale de la caja para devolverle al dueño lo que pagó de su bolsa
+const TIPOS = ['ingreso', 'gasto', 'adeudo', 'abono', 'reparacion', 'inicial', 'reembolso'];
 const HOJA = 'Movimientos';
 const DIAS_SESION = 180;
 const props = () => PropertiesService.getScriptProperties();
@@ -175,6 +176,9 @@ function hoja() {
     const def = ss.getSheetByName('Hoja 1') || ss.getSheetByName('Sheet1') || ss.getSheetByName('Hoja1');
     if (def && def.getLastRow() === 0) ss.deleteSheet(def);
   }
+  // Las columnas nuevas siempre se agregan al final; si la hoja es de una versión anterior se completan los encabezados
+  const enc = h.getRange(1, 1, 1, COLUMNAS.length);
+  if (enc.getValues()[0].join('|') !== COLUMNAS.join('|')) enc.setValues([COLUMNAS]).setFontWeight('bold');
   return h;
 }
 
@@ -191,6 +195,7 @@ function leer() {
         if (v === '' || v === null) return;
         if (v instanceof Date) v = Utilities.formatDate(v, tz, 'yyyy-MM-dd');
         if (c === 'deCaja') o[c] = !(v === false || String(v).toLowerCase() === 'false' || String(v).toLowerCase() === 'no');
+        else if (c === 'pagoDueno') { if (v === true || String(v).toLowerCase() === 'true') o[c] = true; }
         else o[c] = NUMERICOS.indexOf(c) >= 0 ? Number(v) || 0 : String(v);
       });
       return o;
@@ -238,7 +243,9 @@ function aplicar(op, s) {
   o.autor = previo && previo.autor ? previo.autor : s.usuario;
   o.creado = previo && previo.creado ? previo.creado : (m.creado || new Date().toISOString());
   if (previo) o.editado = new Date().toISOString();
-  if (m.tipo === 'reparacion') o.deCaja = m.deCaja !== false; else o.deCaja = '';
+  // Lo que el dueño pagó de su bolsa no sale de la caja (en reparaciones también se marca deCaja = false)
+  o.pagoDueno = (m.tipo === 'gasto' || m.tipo === 'reparacion') && m.pagoDueno === true ? true : '';
+  if (m.tipo === 'reparacion') o.deCaja = m.deCaja !== false && !o.pagoDueno; else o.deCaja = '';
   const fila = COLUMNAS.map(c => celda(o[c]));
   if (r) h.getRange(r, 1, 1, COLUMNAS.length).setValues([fila]);
   else h.appendRow(fila);
