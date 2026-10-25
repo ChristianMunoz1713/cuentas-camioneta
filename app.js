@@ -10,6 +10,8 @@ const fechaLarga = new Intl.DateTimeFormat("es-MX", { weekday: "long", day: "num
 const fechaCorta = new Intl.DateTimeFormat("es-MX", { day: "numeric", month: "short" });
 const horaCorta = new Intl.DateTimeFormat("es-MX", { day: "numeric", month: "short", hour: "numeric", minute: "2-digit" });
 const kmFmt = new Intl.NumberFormat("es-MX");
+const fmt0 = new Intl.NumberFormat("es-MX", { style: "currency", currency: "MXN", maximumFractionDigits: 0 });
+const diaCorto = new Intl.DateTimeFormat("es-MX", { weekday: "short", day: "numeric" });
 const AYUDA = {
   ingreso: "Dinero que entró a la caja: la cuenta del día, un viaje especial, etc.",
   gasto: "Dinero que salió de la caja: diésel, refacciones, sueldo, etc.",
@@ -33,6 +35,7 @@ let cola = LS.get("cam-cola", []);              // cambios aún no enviados
 let actualizado = LS.get("cam-actualizado", null);
 let movs = [];
 let periodo = "mes", tipo = "ingreso", editId = null, borrando = null, repTodas = false;
+let semana = 0;                                 // 0 = esta semana, -1 = la pasada, etc.
 let enviando = false, sinConexion = false, errorSync = "";
 
 function hoyISO(d = new Date()) {
@@ -238,6 +241,85 @@ function renderDeudas(lista) {
   }
 }
 
+/* ---------- balance semanal (de lunes a domingo) ---------- */
+function lunesDe(d) { const x = new Date(d.getFullYear(), d.getMonth(), d.getDate()); x.setDate(x.getDate() - (x.getDay() + 6) % 7); return x; }
+function masDias(d, n) { const x = new Date(d); x.setDate(x.getDate() + n); return x; }
+
+function balanceSemana(lunes) {
+  const desde = hoyISO(lunes), hasta = hoyISO(masDias(lunes, 6));
+  const b = { entregado: 0, gastos: 0, deuda: 0, abonos: 0, choferes: new Map(),
+    dias: Array.from({ length: 7 }, (_, i) => ({ fecha: masDias(lunes, i), entregado: 0, gastos: 0, deuda: 0, abonos: 0 })) };
+  for (const m of movs) {
+    if (m.fecha < desde || m.fecha > hasta) continue;
+    const dia = b.dias[Math.round((parseISO(m.fecha) - lunes) / 864e5)];
+    if (m.tipo === "ingreso") { b.entregado += m.monto; dia.entregado += m.monto; }
+    else if (m.tipo === "abono") { b.abonos += m.monto; dia.abonos += m.monto; }
+    else if (SALE(m)) { b.gastos += m.monto; dia.gastos += m.monto; }
+    else if (m.tipo === "adeudo") {
+      b.deuda += m.monto; dia.deuda += m.monto;
+      const k = clave(m.chofer);
+      if (!b.choferes.has(k)) b.choferes.set(k, { nombre: m.chofer || "Sin nombre", v: 0, veces: 0 });
+      const c = b.choferes.get(k); c.v += m.monto; c.veces++;
+    }
+  }
+  b.neto = r2(b.entregado + b.abonos - b.gastos);
+  return b;
+}
+
+// Fila de una tabla hecha con div: celdas de texto y una clase opcional por celda
+function filaTabla(celdas, cls) {
+  const r = document.createElement("div"); r.className = "fila-t " + (cls || "");
+  for (const [t, c] of celdas) { const s = document.createElement("span"); s.textContent = t; if (c) s.className = c; r.append(s); }
+  return r;
+}
+const cant = (v, c) => v ? [fmt0.format(v), c] : ["—", "nada"];
+
+function renderSemana() {
+  const hoyLunes = lunesDe(new Date());
+  const lunes = masDias(hoyLunes, semana * 7), domingo = masDias(lunes, 6);
+  const b = balanceSemana(lunes);
+  $("#semNombre").textContent = semana === 0 ? "Esta semana" : semana === -1 ? "Semana pasada" : "Hace " + -semana + " semanas";
+  $("#semRango").textContent = diaCorto.format(lunes) + " – " + diaCorto.format(domingo) + " " + fechaCorta.format(domingo).replace(/^\d+\s*(de\s*)?/, "");
+  $("#semSig").disabled = semana >= 0;
+  $("#sIn").textContent = fmt.format(b.entregado + b.abonos);
+  $("#sOut").textContent = fmt.format(b.gastos);
+  $("#sDebe").textContent = fmt.format(b.deuda);
+  $("#sNeto").textContent = (b.neto > 0 ? "+" : "") + fmt.format(b.neto);
+  $("#sNeto").className = "num " + (b.neto < 0 ? "out" : "in");
+  $("#sDetalle").textContent = (b.abonos ? "Cuentas " + fmt.format(b.entregado) + " + pagos de deuda " + fmt.format(b.abonos) : "Entregado " + fmt.format(b.entregado))
+    + " − gastos " + fmt.format(b.gastos);
+
+  const hoy = hoyISO();
+  const dias = $("#sDias"); dias.textContent = "";
+  dias.append(filaTabla([["Día"], ["Entregado"], ["Gastos"], ["Deuda"]], "enc"));
+  for (const d of b.dias) {
+    const f = hoyISO(d.fecha);
+    // lo entregado incluye los pagos de deuda para que la tabla cuadre con el balance
+    const r = filaTabla([[diaCorto.format(d.fecha)], cant(d.entregado + d.abonos, "in"), cant(d.gastos, "out"), cant(d.deuda, "debe")],
+      (f === hoy ? "hoy" : "") + (f > hoy ? " futuro" : ""));
+    if (d.abonos) r.title = "Incluye " + fmt.format(d.abonos) + " de pagos de deuda";
+    dias.append(r);
+  }
+  dias.append(filaTabla([["Total"], cant(b.entregado + b.abonos, "in"), cant(b.gastos, "out"), cant(b.deuda, "debe")], "total"));
+
+  const ch = [...b.choferes.values()].sort((a, c) => c.v - a.v);
+  $("#sChoferesWrap").hidden = !ch.length;
+  const lc = $("#sChoferes"); lc.textContent = "";
+  for (const c of ch) lc.append(filaTabla([[c.nombre], [c.veces === 1 ? "1 día" : c.veces + " días", "nada"], [fmt0.format(c.v), "debe"]], "chof"));
+
+  const hist = $("#sHist"); hist.textContent = "";
+  hist.append(filaTabla([["Semana"], ["Entregado"], ["Gastos"], ["Deuda"]], "enc"));
+  for (let i = 0; i > -8; i--) {
+    const l = masDias(hoyLunes, i * 7), h = balanceSemana(l);
+    const r = filaTabla([[fechaCorta.format(l)], cant(h.entregado + h.abonos, "in"), cant(h.gastos, "out"), cant(h.deuda, "debe")], i === semana ? "sel" : "");
+    r.tabIndex = 0; r.setAttribute("role", "button");
+    r.setAttribute("aria-label", "Ver la semana del " + fechaCorta.format(l));
+    const ir = () => { semana = i; renderSemana(); $("#semanal").scrollIntoView({ behavior: "smooth", block: "start" }); };
+    r.onclick = ir; r.onkeydown = e => { if (e.key === "Enter" || e.key === " ") { e.preventDefault(); ir(); } };
+    hist.append(r);
+  }
+}
+
 // Relación de reparaciones: todas, sin importar el periodo elegido
 function renderReparaciones() {
   const reps = movs.filter(m => m.tipo === "reparacion");
@@ -296,6 +378,7 @@ function render() {
   const deudas = calcularDeudas();
   $("#tDebe").textContent = fmt.format(deudas.reduce((s, c) => s + Math.max(0, c.pendiente), 0));
   renderDeudas(deudas);
+  renderSemana();
   renderReparaciones();
 
   const vis = movs.filter(m => m.tipo !== "inicial" && enPeriodo(m.fecha));
@@ -482,6 +565,8 @@ $("#form").addEventListener("submit", ev => {
 $("#cancelar").onclick = () => { limpiar(); ponerTipo("ingreso", ""); msg(""); render(); };
 document.querySelectorAll(".tipo button").forEach(b => b.onclick = () => { if (!editId) { ponerTipo(b.dataset.v, ""); msg(""); } });
 $("#repMas").onclick = () => { repTodas = !repTodas; renderReparaciones(); };
+$("#semAnt").onclick = () => { semana--; renderSemana(); };
+$("#semSig").onclick = () => { if (semana < 0) { semana++; renderSemana(); } };
 $("#esperado").addEventListener("input", actualizarCalc);
 $("#entregado").addEventListener("input", actualizarCalc);
 document.querySelectorAll("#periodo button").forEach(b => b.onclick = () => {

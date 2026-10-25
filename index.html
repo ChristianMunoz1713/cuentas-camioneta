@@ -71,6 +71,33 @@
     </form>
   </section>
 
+  <section class="card" id="semanal">
+    <div class="top"><h2>Balance semanal</h2><span class="sub" id="semRango"></span></div>
+    <div class="semnav">
+      <button class="btn sec chico" type="button" id="semAnt">‹ Anterior</button>
+      <b id="semNombre">Esta semana</b>
+      <button class="btn sec chico" type="button" id="semSig">Siguiente ›</button>
+    </div>
+    <div class="totales">
+      <div class="tot"><span>Entregado</span><b class="num in" id="sIn">$0</b></div>
+      <div class="tot"><span>Gastos</span><b class="num out" id="sOut">$0</b></div>
+      <div class="tot"><span>Deudas nuevas</span><b class="num debe" id="sDebe">$0</b></div>
+    </div>
+    <div class="neto">
+      <div><span class="sub">Balance de la semana</span><div class="det" id="sDetalle"></div></div>
+      <b class="num" id="sNeto">$0</b>
+    </div>
+    <div class="tabla" id="sDias"></div>
+    <div id="sChoferesWrap" hidden>
+      <div class="sub" style="margin-bottom:4px">Quién quedó a deber esta semana</div>
+      <div class="tabla" id="sChoferes"></div>
+    </div>
+    <div>
+      <div class="sub" style="margin-bottom:4px">Últimas 8 semanas</div>
+      <div class="tabla hist" id="sHist"></div>
+    </div>
+  </section>
+
   <section class="card" id="captura">
     <h2 id="formTitulo">Registrar movimiento</h2>
     <form id="form" novalidate>
