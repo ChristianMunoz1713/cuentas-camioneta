@@ -3,7 +3,7 @@
 const $ = s => document.querySelector(s);
 const CFG = window.CAMIONETA_CONFIG || {};
 const ES_LOCAL = /^(localhost|127\.0\.0\.1)$/.test(location.hostname);
-const API = CFG.apiUrl || (ES_LOCAL ? '/api-prueba' : '');
+const API = ES_LOCAL ? '/api-prueba' : (CFG.apiUrl || '');
 
 const fmt = new Intl.NumberFormat("es-MX", { style: "currency", currency: "MXN" });
 const fechaLarga = new Intl.DateTimeFormat("es-MX", { weekday: "long", day: "numeric", month: "long", year: "numeric" });
@@ -42,6 +42,7 @@ let sesion = LS.get("cam-sesion", null);        // {token, usuario, rol}
 let servidor = LS.get("cam-datos", []);         // última copia confirmada por la hoja de Google
 let cola = LS.get("cam-cola", []);              // cambios aún no enviados
 let actualizado = LS.get("cam-actualizado", null);
+let avisos = LS.get("cam-avisos", []);          // lo que registró el administrador (solo le llega al dueño)
 let movs = [];
 let periodo = "mes", tipo = "ingreso", pagoCon = "caja", editId = null, borrando = null, repTodas = false;
 let modoBal = "semana", paso = 0;               // paso: 0 = la semana o el mes actual, -1 = el anterior, etc.
@@ -103,6 +104,7 @@ async function api(cuerpo) {
   return j;
 }
 function recibir(j) {
+  if (j.avisos) recibirAvisos(j.avisos);
   servidor = j.movimientos || [];
   actualizado = new Date().toISOString();
   LS.set("cam-datos", servidor); LS.set("cam-actualizado", actualizado);
@@ -496,6 +498,7 @@ function renderReparaciones() {
 
 function render() {
   pintarEstado();
+  pintarCampana();
   let tIn = 0, tOut = 0;
   for (const m of movs) { if (ENTRA(m.tipo)) tIn += m.monto; else if (SALE(m)) tOut += m.monto; }
   const ini = movs.find(m => m.tipo === "inicial");
@@ -698,17 +701,20 @@ document.querySelectorAll("#periodo button").forEach(b => b.onclick = () => {
 });
 
 /* ---------- secciones (menú inferior y ajustes) ---------- */
-const VISTAS = ["registros", "balances", "deudas", "pagos", "reparaciones", "ajustes"];
+const VISTAS = ["registros", "balances", "deudas", "pagos", "reparaciones", "ajustes", "avisos"];
 function irA(v) {
   if (!VISTAS.includes(v)) v = "registros";
   document.querySelectorAll(".vista").forEach(s => s.hidden = s.dataset.vista !== v);
   document.querySelectorAll("#tabs button").forEach(b => b.toggleAttribute("aria-current", b.dataset.v === v));
   $("#btnAjustes").setAttribute("aria-pressed", String(v === "ajustes"));
-  if (v !== "ajustes") LS.set("cam-vista", v);
+  $("#btnAvisos").setAttribute("aria-pressed", String(v === "avisos"));
+  if (v === "avisos") { const antes = LS.get("cam-avisos-visto", ""); marcarVistos(); renderAvisos(antes); estadoPush(); }
+  else if (v !== "ajustes") LS.set("cam-vista", v);
   window.scrollTo(0, 0);
 }
 document.querySelectorAll("#tabs button").forEach(b => b.onclick = () => irA(b.dataset.v));
 $("#btnAjustes").onclick = () => irA("ajustes");
+$("#btnAvisos").onclick = () => irA("avisos");
 $("#pgRecuperar").onclick = () => {
   limpiar(); ponerTipo("reembolso", ""); msg("");
   $("#monto").value = Math.max(0, calcularDueno().pendiente);
@@ -722,6 +728,111 @@ $("#repNueva").onclick = () => {
   limpiar(); ponerTipo("reparacion", ""); msg(""); irA("registros");
   $("#categoria").focus({ preventScroll: true });
 };
+
+/* ---------- avisos y notificaciones (solo para el dueño) ---------- */
+function recibirAvisos(lista) {
+  avisos = lista; LS.set("cam-avisos", avisos);
+  const nuevo = avisos[0] ? avisos[0].t : "";
+  const ultimo = LS.get("cam-avisos-ultimo", null);
+  // la primera vez no se avisa de lo que ya había
+  if (ultimo === null) { LS.set("cam-avisos-ultimo", nuevo); if (LS.get("cam-avisos-visto", null) === null) LS.set("cam-avisos-visto", nuevo); return; }
+  if (nuevo && nuevo > ultimo) {
+    LS.set("cam-avisos-ultimo", nuevo);
+    const vistaAvisos = !$('[data-vista="avisos"]').hidden;
+    if (vistaAvisos) marcarVistos(); else mostrarToast(avisos[0]);
+  }
+}
+function marcarVistos() { if (avisos[0]) LS.set("cam-avisos-visto", avisos[0].t); pintarCampana(); }
+function pintarCampana() {
+  const visto = LS.get("cam-avisos-visto", "");
+  const n = avisos.filter(a => a.t > visto).length;
+  const b = $("#btnAvisos .badge"); b.hidden = !n; b.textContent = n > 9 ? "9+" : n;
+}
+let toastTimer = null;
+function mostrarToast(a) {
+  const t = $("#toast");
+  t.textContent = "🔔 " + (a.usuario ? a.usuario + ": " : "") + a.texto.split("\n")[0];
+  t.hidden = false;
+  clearTimeout(toastTimer); toastTimer = setTimeout(() => { t.hidden = true; }, 8000);
+}
+$("#toast").onclick = () => { $("#toast").hidden = true; irA("avisos"); };
+
+// visto: hasta dónde ya se habían leído, para resaltar los nuevos
+function renderAvisos(visto = "") {
+  const cont = $("#avLista"); cont.textContent = "";
+  if (!avisos.length) {
+    const p = document.createElement("p"); p.className = "vacio";
+    p.textContent = "Aún no hay avisos. Aquí vas a ver cada movimiento que registre, cambie o borre tu administrador.";
+    cont.append(p); return;
+  }
+  for (const a of avisos) {
+    const row = document.createElement("div"); row.className = "avi" + (a.t > visto ? " nuevo" : "");
+    const h = document.createElement("div"); h.className = "det";
+    const fecha = new Date(a.t);
+    h.textContent = (isNaN(fecha) ? "" : horaCorta.format(fecha)) + (a.usuario ? " · " + a.usuario : "");
+    const tx = document.createElement("div"); tx.className = "tx";
+    tx.textContent = a.texto;
+    row.append(h, tx); cont.append(row);
+  }
+}
+
+// El service worker necesita la dirección de la hoja y la sesión para pedir el aviso cuando llega una notificación
+function configurarSW() {
+  if (!("serviceWorker" in navigator) || location.protocol === "file:") return;
+  navigator.serviceWorker.ready.then(r => r.active && r.active.postMessage({ tipo: "sesion", api: new URL(API, location.href).href, token: sesion ? sesion.token : null })).catch(() => {});
+}
+const b64aBytes = t => Uint8Array.from(atob(t.replace(/-/g, "+").replace(/_/g, "/") + "===".slice((t.length + 3) % 4)), c => c.charCodeAt(0));
+const soportaPush = () => "serviceWorker" in navigator && "PushManager" in window && "Notification" in window && location.protocol !== "file:";
+async function suscripcion() { try { return await (await navigator.serviceWorker.ready).pushManager.getSubscription(); } catch { return null; } }
+
+async function estadoPush() {
+  const e = $("#pushEstado"), act = $("#pushActivar"), pr = $("#pushProbar"), qu = $("#pushQuitar");
+  act.hidden = pr.hidden = qu.hidden = true;
+  if (!soportaPush()) { e.textContent = "Este navegador no permite notificaciones. En iPhone primero instala la app en la pantalla de inicio. Los avisos siguen apareciendo aquí."; return; }
+  if (Notification.permission === "denied") { e.textContent = "Las notificaciones están bloqueadas para esta app. Actívalas en los ajustes del teléfono (Notificaciones de Chrome o de la app) y vuelve a entrar aquí."; return; }
+  const sub = Notification.permission === "granted" ? await suscripcion() : null;
+  if (sub) { e.textContent = "Las notificaciones están activas en este teléfono: te llega una cada vez que tu administrador registra, cambia o borra algo, aunque la app esté cerrada."; pr.hidden = qu.hidden = false; }
+  else { e.textContent = "Activa las notificaciones para enterarte al momento de lo que registra tu administrador, aunque la app esté cerrada."; act.hidden = false; }
+}
+$("#pushActivar").onclick = async () => {
+  msg("Activando…", "", "#pushMsg");
+  try {
+    if (await Notification.requestPermission() !== "granted") { msg("No se dio permiso para las notificaciones.", "err", "#pushMsg"); return estadoPush(); }
+    const { clave } = await api({ accion: "push.clave", token: sesion.token });
+    const reg = await navigator.serviceWorker.ready;
+    let sub = await reg.pushManager.getSubscription();
+    // si la llave del servidor cambió hay que volver a suscribirse
+    if (sub && sub.options.applicationServerKey && btoa(String.fromCharCode(...new Uint8Array(sub.options.applicationServerKey))) !== btoa(String.fromCharCode(...b64aBytes(clave)))) { await sub.unsubscribe(); sub = null; }
+    if (!sub) sub = await reg.pushManager.subscribe({ userVisibleOnly: true, applicationServerKey: b64aBytes(clave) });
+    await api({ accion: "push.suscribir", token: sesion.token, sub: sub.toJSON() });
+    configurarSW();
+    msg("Listo. Toca «Mandar una prueba» para comprobarlo.", "ok", "#pushMsg");
+  } catch (e) {
+    if (e.auth) return salir("Tu sesión expiró. Vuelve a iniciar sesión.", true);
+    msg("No se pudieron activar: " + e.message, "err", "#pushMsg");
+  }
+  estadoPush();
+};
+$("#pushProbar").onclick = async () => {
+  msg("Mandando…", "", "#pushMsg");
+  try {
+    const j = await api({ accion: "push.probar", token: sesion.token });
+    if (j.avisos) { const antes = LS.get("cam-avisos-visto", ""); recibirAvisos(j.avisos); marcarVistos(); renderAvisos(antes); }
+    const r = j.resultados || [];
+    const bien = r.filter(c => c >= 200 && c < 300).length;
+    msg(bien ? "Enviada. Debe llegarte en unos segundos." : "No se pudo enviar (" + (r.join(", ") || "sin teléfonos registrados") + "). Desactiva y vuelve a activar.", bien ? "ok" : "err", "#pushMsg");
+  } catch (e) { msg(e.message, "err", "#pushMsg"); }
+};
+$("#pushQuitar").onclick = async () => {
+  const sub = await suscripcion();
+  if (sub) { api({ accion: "push.quitar", token: sesion.token, endpoint: sub.endpoint }).catch(() => {}); await sub.unsubscribe().catch(() => {}); }
+  msg("Desactivadas en este teléfono.", "", "#pushMsg");
+  estadoPush();
+};
+// al tocar una notificación con la app abierta
+if ("serviceWorker" in navigator) navigator.serviceWorker.addEventListener("message", e => {
+  if (e.data && e.data.tipo === "abrir-avisos" && sesion) { irA("avisos"); enviar(); }
+});
 
 /* ---------- saldo inicial (un solo registro fijo) ---------- */
 function cerrarIni() { $("#iniCard").hidden = true; msg("", "", "#iniMsg"); render(); }
@@ -757,7 +868,11 @@ function mostrarApp() {
   $("#tabPagos").textContent = soyDueno ? "Mis pagos" : "Pagos dueño";
   $("#pgTit").textContent = soyDueno ? "Lo que pagué de mi bolsa" : "Lo que pagó el dueño";
   $("#tDuenoLbl").textContent = soyDueno ? "Te falta recuperar" : "Por devolver al dueño";
-  irA(LS.get("cam-vista", sesion.rol === "dueno" ? "balances" : "registros"));
+  $("#btnAvisos").hidden = !soyDueno;
+  const pedida = new URLSearchParams(location.search).get("vista");
+  irA(pedida === "avisos" && soyDueno ? "avisos" : LS.get("cam-vista", soyDueno ? "balances" : "registros"));
+  if (pedida) history.replaceState(null, "", location.pathname);
+  configurarSW();
   recalcular(); llenarSugerencias(); render();
   enviar();
 }
@@ -771,7 +886,9 @@ function salir(texto, error) {
   sesion = null; LS.del("cam-sesion");
   if (!error && token) api({ accion: "logout", token }).catch(() => {});
   // al cerrar sesión a propósito se borra la copia local (los datos siguen en la hoja de Google)
-  if (!error) { servidor = []; cola = []; LS.del("cam-datos"); LS.del("cam-cola"); LS.del("cam-actualizado"); LS.del("cam-vista"); }
+  if (!error) { servidor = []; cola = []; LS.del("cam-datos"); LS.del("cam-cola"); LS.del("cam-actualizado"); LS.del("cam-vista");
+    avisos = []; for (const k of ["cam-avisos", "cam-avisos-visto", "cam-avisos-ultimo"]) LS.del(k); }
+  configurarSW();
   mostrarLogin(texto, error);
 }
 $("#btnSalir").onclick = () => salir("Cerraste sesión.");

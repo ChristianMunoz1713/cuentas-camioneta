@@ -219,3 +219,17 @@ input:focus-visible, button:focus-visible { outline: 2px solid var(--accent); ou
 .seg.tipo button[aria-pressed="true"][data-v="reembolso"] { background: var(--dueno); color: #fff; }
 .mov.dueno .st { background: repeating-linear-gradient(180deg, var(--dueno) 0 6px, transparent 6px 10px); }
 .mov.reembolso .st { background: var(--dueno); }
+
+/* Avisos y notificaciones */
+.icono { position: relative; }
+.icono .badge { position: absolute; top: -4px; right: -4px; min-width: 18px; height: 18px; padding: 0 5px; border-radius: 999px;
+  background: var(--gasto); color: #fff; font: 700 .7rem/18px var(--body); font-style: normal; text-align: center; }
+.push { background: var(--soft); border-radius: 8px; padding: 12px 14px; display: grid; gap: 10px; }
+.avi { padding: 10px 0 10px 12px; border-top: 1px solid var(--line); border-left: 3px solid transparent; }
+.avi:first-child { border-top: 0; }
+.avi.nuevo { border-left-color: var(--accent); }
+.avi .det { font-size: .8rem; color: var(--muted); }
+.avi .tx { white-space: pre-line; overflow-wrap: anywhere; }
+.toast { position: fixed; left: 50%; transform: translateX(-50%); bottom: calc(84px + env(safe-area-inset-bottom, 0px)); z-index: 20;
+  width: min(92vw, 520px); text-align: left; border: 0; border-radius: 10px; padding: 12px 14px; cursor: pointer;
+  background: var(--sign-bg); color: #E9EFEE; font: 500 .92rem var(--body); box-shadow: 0 6px 20px rgba(0,0,0,.25); }

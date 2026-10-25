@@ -14,7 +14,7 @@
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
   <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Barlow+Condensed:wght@500;600;700&family=Barlow:wght@400;500;600&display=swap">
-  <link rel="stylesheet" href="styles.css?v=7">
+  <link rel="stylesheet" href="styles.css?v=8">
 </head>
 <body>
 
@@ -39,6 +39,7 @@
     <h1>Cuentas de la Camioneta</h1>
     <div class="topder">
       <span class="rol" id="rol">—</span>
+      <button class="icono" type="button" id="btnAvisos" aria-label="Avisos" title="Avisos" hidden><svg viewBox="0 0 24 24" aria-hidden="true" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M6 8a6 6 0 0 1 12 0c0 7 3 9 3 9H3s3-2 3-9M10.3 21a1.94 1.94 0 0 0 3.4 0"/></svg><i class="badge" hidden></i></button>
       <button class="icono" type="button" id="btnAjustes" aria-label="Ajustes" title="Ajustes"><svg viewBox="0 0 24 24" aria-hidden="true" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.7 1.7 0 0 0 .3 1.8l.1.1a2 2 0 1 1-2.8 2.8l-.1-.1a1.7 1.7 0 0 0-1.8-.3 1.7 1.7 0 0 0-1 1.5V21a2 2 0 1 1-4 0v-.1a1.7 1.7 0 0 0-1.1-1.5 1.7 1.7 0 0 0-1.8.3l-.1.1a2 2 0 1 1-2.8-2.8l.1-.1a1.7 1.7 0 0 0 .3-1.8 1.7 1.7 0 0 0-1.5-1H3a2 2 0 1 1 0-4h.1a1.7 1.7 0 0 0 1.5-1.1 1.7 1.7 0 0 0-.3-1.8l-.1-.1a2 2 0 1 1 2.8-2.8l.1.1a1.7 1.7 0 0 0 1.8.3H9a1.7 1.7 0 0 0 1-1.5V3a2 2 0 1 1 4 0v.1a1.7 1.7 0 0 0 1 1.5 1.7 1.7 0 0 0 1.8-.3l.1-.1a2 2 0 1 1 2.8 2.8l-.1.1a1.7 1.7 0 0 0-.3 1.8V9a1.7 1.7 0 0 0 1.5 1H21a2 2 0 1 1 0 4h-.1a1.7 1.7 0 0 0-1.5 1z"/></svg></button>
     </div>
   </header>
@@ -200,6 +201,22 @@
   </section>
   </div>
 
+  <div class="vista" data-vista="avisos" hidden>
+  <section class="card">
+    <div class="top"><h2>Avisos</h2><span class="sub">Lo que registra tu administrador</span></div>
+    <div class="push">
+      <p class="ayuda" id="pushEstado"></p>
+      <div class="acciones">
+        <button class="btn chico" type="button" id="pushActivar">Activar notificaciones</button>
+        <button class="btn sec chico" type="button" id="pushProbar" hidden>Mandar una prueba</button>
+        <button class="btn sec chico" type="button" id="pushQuitar" hidden>Desactivar en este teléfono</button>
+      </div>
+      <div class="msg" id="pushMsg" role="status"></div>
+    </div>
+    <div id="avLista"></div>
+  </section>
+  </div>
+
   <div class="vista" data-vista="ajustes" hidden>
   <section class="card ajustes">
     <h2>Ajustes</h2>
@@ -254,6 +271,8 @@
   </section>
   </div>
 
+  <button class="toast" type="button" id="toast" hidden></button>
+
   <nav class="tabs" id="tabs" aria-label="Secciones">
     <button type="button" data-v="registros"><svg viewBox="0 0 24 24" aria-hidden="true" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M9 4h6M8 3h8a1 1 0 0 1 1 1v1h1.5A1.5 1.5 0 0 1 20 6.5v13a1.5 1.5 0 0 1-1.5 1.5h-13A1.5 1.5 0 0 1 4 19.5v-13A1.5 1.5 0 0 1 5.5 5H7V4a1 1 0 0 1 1-1zM8 11h8M8 15h5"/></svg><span>Registros</span><i class="badge" hidden></i></button>
     <button type="button" data-v="balances"><svg viewBox="0 0 24 24" aria-hidden="true" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M4 20V10M10 20V4M16 20v-7M22 20H2"/></svg><span>Balances</span><i class="badge" hidden></i></button>
@@ -263,7 +282,7 @@
   </nav>
 </div>
 
-<script src="config.js?v=7"></script>
-<script src="app.js?v=7"></script>
+<script src="config.js?v=8"></script>
+<script src="app.js?v=8"></script>
 </body>
 </html>
