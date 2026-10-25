@@ -72,11 +72,20 @@
   </section>
 
   <section class="card" id="semanal">
-    <div class="top"><h2>Balance semanal</h2><span class="sub" id="semRango"></span></div>
-    <div class="semnav">
-      <button class="btn sec chico" type="button" id="semAnt">‹ Anterior</button>
+    <div class="top"><h2>Balance</h2><span class="sub" id="semRango"></span></div>
+    <div class="seg" role="group" aria-label="Periodo del balance" id="balModo">
+      <button type="button" data-v="semana" aria-pressed="true">Semanal</button>
+      <button type="button" data-v="mes" aria-pressed="false">Mensual</button>
+      <button type="button" data-v="rango" aria-pressed="false">Elegir fechas</button>
+    </div>
+    <div class="fila" id="balFechas" hidden>
+      <label>Desde<input id="balDesde" type="date"></label>
+      <label>Hasta<input id="balHasta" type="date"></label>
+    </div>
+    <div class="semnav" id="semNav">
+      <button class="btn sec chico" type="button" id="semAnt" aria-label="Anterior">‹ Ant.</button>
       <b id="semNombre">Esta semana</b>
-      <button class="btn sec chico" type="button" id="semSig">Siguiente ›</button>
+      <button class="btn sec chico" type="button" id="semSig" aria-label="Siguiente">Sig. ›</button>
     </div>
     <div class="totales">
       <div class="tot"><span>Entregado</span><b class="num in" id="sIn">$0</b></div>
@@ -84,16 +93,16 @@
       <div class="tot"><span>Deudas nuevas</span><b class="num debe" id="sDebe">$0</b></div>
     </div>
     <div class="neto">
-      <div><span class="sub">Balance de la semana</span><div class="det" id="sDetalle"></div></div>
+      <div><span class="sub" id="sNetoTit">Balance de la semana</span><div class="det" id="sDetalle"></div></div>
       <b class="num" id="sNeto">$0</b>
     </div>
     <div class="tabla" id="sDias"></div>
     <div id="sChoferesWrap" hidden>
-      <div class="sub" style="margin-bottom:4px">Quién quedó a deber esta semana</div>
+      <div class="sub" style="margin-bottom:4px">Quién quedó a deber en este periodo</div>
       <div class="tabla" id="sChoferes"></div>
     </div>
-    <div>
-      <div class="sub" style="margin-bottom:4px">Últimas 8 semanas</div>
+    <div id="sHistWrap">
+      <div class="sub" style="margin-bottom:4px" id="sHistTit">Últimas 8 semanas</div>
       <div class="tabla hist" id="sHist"></div>
     </div>
   </section>
