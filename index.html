@@ -37,7 +37,10 @@
 <div class="wrap" id="pantallaApp" hidden>
   <header class="top">
     <h1>Cuentas de la Camioneta</h1>
-    <span class="rol" id="rol">—</span>
+    <div class="topder">
+      <span class="rol" id="rol">—</span>
+      <button class="icono" type="button" id="btnAjustes" aria-label="Ajustes" title="Ajustes"><svg viewBox="0 0 24 24" aria-hidden="true" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.7 1.7 0 0 0 .3 1.8l.1.1a2 2 0 1 1-2.8 2.8l-.1-.1a1.7 1.7 0 0 0-1.8-.3 1.7 1.7 0 0 0-1 1.5V21a2 2 0 1 1-4 0v-.1a1.7 1.7 0 0 0-1.1-1.5 1.7 1.7 0 0 0-1.8.3l-.1.1a2 2 0 1 1-2.8-2.8l.1-.1a1.7 1.7 0 0 0 .3-1.8 1.7 1.7 0 0 0-1.5-1H3a2 2 0 1 1 0-4h.1a1.7 1.7 0 0 0 1.5-1.1 1.7 1.7 0 0 0-.3-1.8l-.1-.1a2 2 0 1 1 2.8-2.8l.1.1a1.7 1.7 0 0 0 1.8.3H9a1.7 1.7 0 0 0 1-1.5V3a2 2 0 1 1 4 0v.1a1.7 1.7 0 0 0 1 1.5 1.7 1.7 0 0 0 1.8-.3l.1-.1a2 2 0 1 1 2.8 2.8l-.1.1a1.7 1.7 0 0 0-.3 1.8V9a1.7 1.7 0 0 0 1.5 1H21a2 2 0 1 1 0 4h-.1a1.7 1.7 0 0 0-1.5 1z"/></svg></button>
+    </div>
   </header>
   <div class="estado" id="estado"></div>
 
@@ -52,61 +55,7 @@
     </div>
   </section>
 
-  <div class="acciones" id="iniBtnWrap"><button class="btn sec chico" type="button" id="iniBtn">Poner saldo inicial</button></div>
-
-  <section class="card" id="iniCard" hidden>
-    <h2>Saldo inicial</h2>
-    <p class="ayuda">El dinero que ya había en la caja antes de empezar a registrar. Se suma al saldo disponible, pero no cuenta como entrada del periodo.</p>
-    <form id="iniForm" novalidate>
-      <div class="fila">
-        <label>Monto (MXN)<input id="iniMonto" class="grande" type="number" inputmode="decimal" step="0.01" placeholder="0.00"></label>
-        <label>A partir de la fecha<input id="iniFecha" type="date"></label>
-      </div>
-      <div class="acciones">
-        <button class="btn" type="submit">Guardar saldo inicial</button>
-        <button class="btn sec" type="button" id="iniCancelar">Cancelar</button>
-        <button class="btn sec" type="button" id="iniQuitar" hidden>Quitar</button>
-      </div>
-      <div class="msg" id="iniMsg" role="status"></div>
-    </form>
-  </section>
-
-  <section class="card" id="semanal">
-    <div class="top"><h2>Balance</h2><span class="sub" id="semRango"></span></div>
-    <div class="seg" role="group" aria-label="Periodo del balance" id="balModo">
-      <button type="button" data-v="semana" aria-pressed="true">Semanal</button>
-      <button type="button" data-v="mes" aria-pressed="false">Mensual</button>
-      <button type="button" data-v="rango" aria-pressed="false">Elegir fechas</button>
-    </div>
-    <div class="fila" id="balFechas" hidden>
-      <label>Desde<input id="balDesde" type="date"></label>
-      <label>Hasta<input id="balHasta" type="date"></label>
-    </div>
-    <div class="semnav" id="semNav">
-      <button class="btn sec chico" type="button" id="semAnt" aria-label="Anterior">‹ Ant.</button>
-      <b id="semNombre">Esta semana</b>
-      <button class="btn sec chico" type="button" id="semSig" aria-label="Siguiente">Sig. ›</button>
-    </div>
-    <div class="totales">
-      <div class="tot"><span>Entregado</span><b class="num in" id="sIn">$0</b></div>
-      <div class="tot"><span>Gastos</span><b class="num out" id="sOut">$0</b></div>
-      <div class="tot"><span>Deudas nuevas</span><b class="num debe" id="sDebe">$0</b></div>
-    </div>
-    <div class="neto">
-      <div><span class="sub" id="sNetoTit">Balance de la semana</span><div class="det" id="sDetalle"></div></div>
-      <b class="num" id="sNeto">$0</b>
-    </div>
-    <div class="tabla" id="sDias"></div>
-    <div id="sChoferesWrap" hidden>
-      <div class="sub" style="margin-bottom:4px">Quién quedó a deber en este periodo</div>
-      <div class="tabla" id="sChoferes"></div>
-    </div>
-    <div id="sHistWrap">
-      <div class="sub" style="margin-bottom:4px" id="sHistTit">Últimas 8 semanas</div>
-      <div class="tabla hist" id="sHist"></div>
-    </div>
-  </section>
-
+  <div class="vista" data-vista="registros" hidden>
   <section class="card" id="captura">
     <h2 id="formTitulo">Registrar movimiento</h2>
     <form id="form" novalidate>
@@ -150,10 +99,67 @@
   </section>
 
   <section class="card">
+    <h2>Movimientos</h2>
+    <div class="seg" role="group" aria-label="Periodo" id="periodo">
+      <button type="button" data-v="hoy" aria-pressed="false">Hoy</button>
+      <button type="button" data-v="semana" aria-pressed="false">7 días</button>
+      <button type="button" data-v="mes" aria-pressed="true">Este mes</button>
+      <button type="button" data-v="todo" aria-pressed="false">Todo</button>
+    </div>
+    <div id="lista"></div>
+  </section>
+  </div>
+
+  <div class="vista" data-vista="balances" hidden>
+  <section class="card" id="semanal">
+    <div class="top"><h2>Balance</h2><span class="sub" id="semRango"></span></div>
+    <div class="seg" role="group" aria-label="Periodo del balance" id="balModo">
+      <button type="button" data-v="semana" aria-pressed="true">Semanal</button>
+      <button type="button" data-v="mes" aria-pressed="false">Mensual</button>
+      <button type="button" data-v="rango" aria-pressed="false">Elegir fechas</button>
+    </div>
+    <div class="fila" id="balFechas" hidden>
+      <label>Desde<input id="balDesde" type="date"></label>
+      <label>Hasta<input id="balHasta" type="date"></label>
+    </div>
+    <div class="semnav" id="semNav">
+      <button class="btn sec chico" type="button" id="semAnt" aria-label="Anterior">‹ Ant.</button>
+      <b id="semNombre">Esta semana</b>
+      <button class="btn sec chico" type="button" id="semSig" aria-label="Siguiente">Sig. ›</button>
+    </div>
+    <div class="totales">
+      <div class="tot"><span>Entregado</span><b class="num in" id="sIn">$0</b></div>
+      <div class="tot"><span>Gastos</span><b class="num out" id="sOut">$0</b></div>
+      <div class="tot"><span>Deudas nuevas</span><b class="num debe" id="sDebe">$0</b></div>
+    </div>
+    <div class="neto">
+      <div><span class="sub" id="sNetoTit">Balance de la semana</span><div class="det" id="sDetalle"></div></div>
+      <b class="num" id="sNeto">$0</b>
+    </div>
+    <div class="tabla" id="sDias"></div>
+    <div id="barsWrap" hidden>
+      <div class="sub" style="margin-bottom:8px">Gastos por concepto</div>
+      <div class="bars" id="bars"></div>
+    </div>
+    <div id="sChoferesWrap" hidden>
+      <div class="sub" style="margin-bottom:4px">Quién quedó a deber en este periodo</div>
+      <div class="tabla" id="sChoferes"></div>
+    </div>
+    <div id="sHistWrap">
+      <div class="sub" style="margin-bottom:4px" id="sHistTit">Últimas 8 semanas</div>
+      <div class="tabla hist" id="sHist"></div>
+    </div>
+  </section>
+  </div>
+
+  <div class="vista" data-vista="deudas" hidden>
+  <section class="card">
     <div class="top"><h2>Deudas de choferes</h2><span class="sub">Pendiente por cobrar</span></div>
     <div class="deudas" id="deudas"></div>
   </section>
+  </div>
 
+  <div class="vista" data-vista="reparaciones" hidden>
   <section class="card">
     <div class="top"><h2>Reparaciones y mantenimiento</h2><span class="sub" id="repUltimo"></span></div>
     <div class="totales">
@@ -161,35 +167,13 @@
       <div class="tot"><span>Desde el inicio</span><b class="num" id="repTotal">$0</b></div>
       <div class="tot"><span>Reparaciones</span><b class="num" id="repNum">0</b></div>
     </div>
+    <div class="acciones"><button class="btn sec chico" type="button" id="repNueva">+ Registrar reparación</button></div>
     <div class="reps" id="reps"></div>
     <div class="acciones" id="repMasWrap" hidden><button class="btn sec chico" type="button" id="repMas">Ver todas</button></div>
   </section>
+  </div>
 
-  <section class="card">
-    <div class="top"><h2>Resumen</h2></div>
-    <div class="seg" role="group" aria-label="Periodo" id="periodo">
-      <button type="button" data-v="hoy" aria-pressed="false">Hoy</button>
-      <button type="button" data-v="semana" aria-pressed="false">7 días</button>
-      <button type="button" data-v="mes" aria-pressed="true">Este mes</button>
-      <button type="button" data-v="todo" aria-pressed="false">Todo</button>
-    </div>
-    <div class="totales">
-      <div class="tot"><span>Entradas</span><b class="num in" id="pIn">$0</b></div>
-      <div class="tot"><span>Gastos</span><b class="num out" id="pOut">$0</b></div>
-      <div class="tot"><span>Utilidad</span><b class="num" id="pNet">$0</b></div>
-    </div>
-    <div class="sub" id="pDebe" hidden></div>
-    <div id="barsWrap" hidden>
-      <div class="sub" style="margin-bottom:8px">Gastos por concepto</div>
-      <div class="bars" id="bars"></div>
-    </div>
-  </section>
-
-  <section class="card">
-    <h2>Movimientos</h2>
-    <div id="lista"></div>
-  </section>
-
+  <div class="vista" data-vista="ajustes" hidden>
   <section class="card ajustes">
     <h2>Ajustes</h2>
     <div class="bloque">
@@ -221,6 +205,34 @@
       <div class="msg" id="aMsg" role="status"></div>
     </form>
   </section>
+
+
+  <div class="acciones" id="iniBtnWrap"><button class="btn sec chico" type="button" id="iniBtn">Poner saldo inicial</button></div>
+
+  <section class="card" id="iniCard" hidden>
+    <h2>Saldo inicial</h2>
+    <p class="ayuda">El dinero que ya había en la caja antes de empezar a registrar. Se suma al saldo disponible, pero no cuenta como entrada del periodo.</p>
+    <form id="iniForm" novalidate>
+      <div class="fila">
+        <label>Monto (MXN)<input id="iniMonto" class="grande" type="number" inputmode="decimal" step="0.01" placeholder="0.00"></label>
+        <label>A partir de la fecha<input id="iniFecha" type="date"></label>
+      </div>
+      <div class="acciones">
+        <button class="btn" type="submit">Guardar saldo inicial</button>
+        <button class="btn sec" type="button" id="iniCancelar">Cancelar</button>
+        <button class="btn sec" type="button" id="iniQuitar" hidden>Quitar</button>
+      </div>
+      <div class="msg" id="iniMsg" role="status"></div>
+    </form>
+  </section>
+  </div>
+
+  <nav class="tabs" id="tabs" aria-label="Secciones">
+    <button type="button" data-v="registros"><svg viewBox="0 0 24 24" aria-hidden="true" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M9 4h6M8 3h8a1 1 0 0 1 1 1v1h1.5A1.5 1.5 0 0 1 20 6.5v13a1.5 1.5 0 0 1-1.5 1.5h-13A1.5 1.5 0 0 1 4 19.5v-13A1.5 1.5 0 0 1 5.5 5H7V4a1 1 0 0 1 1-1zM8 11h8M8 15h5"/></svg><span>Registros</span><i class="badge" hidden></i></button>
+    <button type="button" data-v="balances"><svg viewBox="0 0 24 24" aria-hidden="true" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M4 20V10M10 20V4M16 20v-7M22 20H2"/></svg><span>Balances</span><i class="badge" hidden></i></button>
+    <button type="button" data-v="deudas"><svg viewBox="0 0 24 24" aria-hidden="true" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><circle cx="9" cy="8" r="3.5"/><path d="M2.5 20a6.5 6.5 0 0 1 13 0M17 8h5M19.5 5.5v5"/></svg><span>Deudas</span><i class="badge" hidden></i></button>
+    <button type="button" data-v="reparaciones"><svg viewBox="0 0 24 24" aria-hidden="true" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M14.7 6.3a4 4 0 0 0-5.4 5.2L3.5 17.3a1.8 1.8 0 0 0 2.6 2.6l5.8-5.8a4 4 0 0 0 5.2-5.4l-2.6 2.6-2.3-.6-.6-2.3z"/></svg><span>Reparaciones</span><i class="badge" hidden></i></button>
+  </nav>
 </div>
 
 <script src="config.js"></script>

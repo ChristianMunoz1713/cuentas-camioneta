@@ -235,6 +235,7 @@ function renderDeudas(lista) {
       b.onclick = () => {
         limpiar(); ponerTipo("abono", "");
         $("#chofer").value = c.nombre; $("#monto").value = c.pendiente; msg("");
+        irA("registros");
         $("#captura").scrollIntoView({ behavior: "smooth", block: "start" }); $("#monto").focus({ preventScroll: true });
       };
       der.append(b);
@@ -278,13 +279,19 @@ function partir(desde, hasta, unidad) {
 
 function balance(desde, hasta, unidad) {
   const a = hoyISO(desde), z = hoyISO(hasta);
-  const b = { entregado: 0, gastos: 0, deuda: 0, abonos: 0, choferes: new Map(), grupos: partir(desde, hasta, unidad) };
+  const b = { entregado: 0, gastos: 0, deuda: 0, abonos: 0, choferes: new Map(), porCat: {}, grupos: partir(desde, hasta, unidad) };
   for (const m of movs) {
     if (m.fecha < a || m.fecha > z) continue;
     const g = b.grupos.find(x => m.fecha <= x.z);
     if (m.tipo === "ingreso") { b.entregado += m.monto; g.entregado += m.monto; }
     else if (m.tipo === "abono") { b.abonos += m.monto; g.abonos += m.monto; }
-    else if (SALE(m)) { b.gastos += m.monto; g.gastos += m.monto; }
+    else if (SALE(m)) {
+      b.gastos += m.monto; g.gastos += m.monto;
+      // Todas las reparaciones se agrupan en una sola barra para comparar contra los demás gastos
+      const k = m.tipo === "reparacion" ? "~reparaciones" : (clave(m.categoria) || "sin concepto");
+      if (!b.porCat[k]) b.porCat[k] = { n: m.tipo === "reparacion" ? "Reparaciones" : (m.categoria || "Sin concepto"), v: 0 };
+      b.porCat[k].v += m.monto;
+    }
     else if (m.tipo === "adeudo") {
       b.deuda += m.monto; g.deuda += m.monto;
       const k = clave(m.chofer);
@@ -334,6 +341,19 @@ function renderBalance() {
   $("#sDetalle").textContent = (b.abonos ? "Cuentas " + fmt.format(b.entregado) + " + pagos de deuda " + fmt.format(b.abonos) : "Entregado " + fmt.format(b.entregado))
     + " − gastos " + fmt.format(b.gastos);
 
+  const cats = Object.values(b.porCat).sort((a, c) => c.v - a.v);
+  const bars = $("#bars"); bars.textContent = "";
+  $("#barsWrap").hidden = !cats.length;
+  const max = cats.length ? cats[0].v : 1;
+  for (const { n, v } of cats) {
+    const r = document.createElement("div"); r.className = "bar";
+    const nm = document.createElement("span"); nm.className = "nm"; nm.textContent = n; nm.title = n;
+    const tr = document.createElement("span"); tr.className = "tr";
+    const i = document.createElement("i"); i.style.width = Math.max(2, v / max * 100) + "%"; tr.append(i);
+    const vv = document.createElement("span"); vv.className = "v"; vv.textContent = fmt.format(v);
+    r.append(nm, tr, vv); bars.append(r);
+  }
+
   const hoy = hoyISO();
   const tabla = $("#sDias"); tabla.textContent = "";
   tabla.append(filaTabla([[{ dia: "Día", semana: "Semana", mes: "Mes" }[unidad]], ["Entregado"], ["Gastos"], ["Deuda"]], "enc"));
@@ -382,7 +402,7 @@ function renderReparaciones() {
   const cont = $("#reps"); cont.textContent = "";
   if (!reps.length) {
     const p = document.createElement("p"); p.className = "vacio";
-    p.textContent = "Aún no hay reparaciones. Regístralas con el botón Reparación del formulario de arriba.";
+    p.textContent = "Aún no hay reparaciones. Regístralas con el botón Registrar reparación.";
     cont.append(p); $("#repMasWrap").hidden = true; return;
   }
   const LIM = 8;
@@ -427,42 +447,13 @@ function render() {
   const deudas = calcularDeudas();
   $("#tDebe").textContent = fmt.format(deudas.reduce((s, c) => s + Math.max(0, c.pendiente), 0));
   renderDeudas(deudas);
+  const deben = deudas.filter(c => c.pendiente > 0).length;
+  const aviso = $("#tabs [data-v=\"deudas\"] .badge");
+  aviso.hidden = !deben; aviso.textContent = deben;
   renderBalance();
   renderReparaciones();
 
   const vis = movs.filter(m => m.tipo !== "inicial" && enPeriodo(m.fecha));
-  let pIn = 0, pOut = 0, pDebe = 0; const porCat = {};
-  for (const m of vis) {
-    if (SALE(m)) {
-      pOut += m.monto;
-      // Todas las reparaciones se agrupan en una sola barra para comparar contra los demás gastos
-      const nombre = m.tipo === "reparacion" ? "Reparaciones" : (m.categoria || "Sin concepto");
-      const k = m.tipo === "reparacion" ? "~reparaciones" : (clave(m.categoria) || "sin concepto");
-      if (!porCat[k]) porCat[k] = { n: nombre, v: 0 };
-      porCat[k].v += m.monto;
-    } else if (ENTRA(m.tipo)) pIn += m.monto;
-    else if (m.tipo === "adeudo") pDebe += m.monto;
-  }
-  $("#pIn").textContent = fmt.format(pIn);
-  $("#pOut").textContent = fmt.format(pOut);
-  $("#pNet").textContent = fmt.format(pIn - pOut);
-  $("#pNet").className = "num " + (pIn - pOut < 0 ? "out" : "in");
-  $("#pDebe").hidden = !pDebe;
-  $("#pDebe").textContent = "Cuentas no entregadas en el periodo: " + fmt.format(pDebe);
-
-  const cats = Object.values(porCat).sort((a, b) => b.v - a.v);
-  const bars = $("#bars"); bars.textContent = "";
-  $("#barsWrap").hidden = !cats.length;
-  const max = cats.length ? cats[0].v : 1;
-  for (const { n, v } of cats) {
-    const r = document.createElement("div"); r.className = "bar";
-    const nm = document.createElement("span"); nm.className = "nm"; nm.textContent = n; nm.title = n;
-    const tr = document.createElement("span"); tr.className = "tr";
-    const i = document.createElement("i"); i.style.width = Math.max(2, v / max * 100) + "%"; tr.append(i);
-    const vv = document.createElement("span"); vv.className = "v"; vv.textContent = fmt.format(v);
-    r.append(nm, tr, vv); bars.append(r);
-  }
-
   const lista = $("#lista"); lista.textContent = "";
   if (!vis.length) {
     const p = document.createElement("p"); p.className = "vacio";
@@ -535,6 +526,7 @@ function editar(m) {
   $("#formTitulo").textContent = "Editar movimiento";
   $("#guardar").textContent = "Guardar cambios";
   $("#cancelar").hidden = false; msg("");
+  irA("registros");
   $("#captura").scrollIntoView({ behavior: "smooth", block: "start" });
   render();
 }
@@ -631,6 +623,23 @@ document.querySelectorAll("#periodo button").forEach(b => b.onclick = () => {
   render();
 });
 
+/* ---------- secciones (menú inferior y ajustes) ---------- */
+const VISTAS = ["registros", "balances", "deudas", "reparaciones", "ajustes"];
+function irA(v) {
+  if (!VISTAS.includes(v)) v = "registros";
+  document.querySelectorAll(".vista").forEach(s => s.hidden = s.dataset.vista !== v);
+  document.querySelectorAll("#tabs button").forEach(b => b.toggleAttribute("aria-current", b.dataset.v === v));
+  $("#btnAjustes").setAttribute("aria-pressed", String(v === "ajustes"));
+  if (v !== "ajustes") LS.set("cam-vista", v);
+  window.scrollTo(0, 0);
+}
+document.querySelectorAll("#tabs button").forEach(b => b.onclick = () => irA(b.dataset.v));
+$("#btnAjustes").onclick = () => irA("ajustes");
+$("#repNueva").onclick = () => {
+  limpiar(); ponerTipo("reparacion", ""); msg(""); irA("registros");
+  $("#categoria").focus({ preventScroll: true });
+};
+
 /* ---------- saldo inicial (un solo registro fijo) ---------- */
 function cerrarIni() { $("#iniCard").hidden = true; msg("", "", "#iniMsg"); render(); }
 $("#iniBtn").onclick = () => {
@@ -661,6 +670,7 @@ function mostrarApp() {
   $("#rol").textContent = ROLES[sesion.rol] || sesion.rol;
   $("#ajSesion").textContent = "Entraste como " + sesion.usuario + " (" + (ROLES[sesion.rol] || sesion.rol) + ").";
   $("#adminForm").hidden = sesion.rol !== "dueno";
+  irA(LS.get("cam-vista", sesion.rol === "dueno" ? "balances" : "registros"));
   recalcular(); llenarSugerencias(); render();
   enviar();
 }
@@ -674,7 +684,7 @@ function salir(texto, error) {
   sesion = null; LS.del("cam-sesion");
   if (!error && token) api({ accion: "logout", token }).catch(() => {});
   // al cerrar sesión a propósito se borra la copia local (los datos siguen en la hoja de Google)
-  if (!error) { servidor = []; cola = []; LS.del("cam-datos"); LS.del("cam-cola"); LS.del("cam-actualizado"); }
+  if (!error) { servidor = []; cola = []; LS.del("cam-datos"); LS.del("cam-cola"); LS.del("cam-actualizado"); LS.del("cam-vista"); }
   mostrarLogin(texto, error);
 }
 $("#btnSalir").onclick = () => salir("Cerraste sesión.");
