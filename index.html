@@ -14,7 +14,7 @@
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
   <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Barlow+Condensed:wght@500;600;700&family=Barlow:wght@400;500;600&display=swap">
-  <link rel="stylesheet" href="styles.css?v=6">
+  <link rel="stylesheet" href="styles.css?v=7">
 </head>
 <body>
 
@@ -52,6 +52,7 @@
       <span>Entradas totales <b class="num" id="tIn">—</b></span>
       <span>Gastos totales <b class="num" id="tOut">—</b></span>
       <span>Choferes deben <b class="num debe" id="tDebe">—</b></span>
+      <span id="tDuenoWrap" hidden><span id="tDuenoLbl">Por recuperar del dueño</span> <b class="num dueno" id="tDueno">—</b></span>
     </div>
   </section>
 
@@ -65,6 +66,7 @@
         <button type="button" data-v="adeudo" aria-pressed="false">Deuda de chofer</button>
         <button type="button" data-v="abono" aria-pressed="false">Pago de deuda</button>
         <button type="button" data-v="reparacion" aria-pressed="false">Reparación</button>
+        <button type="button" data-v="reembolso" aria-pressed="false">Recuperación del dueño</button>
       </div>
       <p class="ayuda" id="ayuda"></p>
 
@@ -88,7 +90,15 @@
         <label>Kilometraje (opcional)<input id="km" type="number" inputmode="numeric" min="0" step="1" placeholder="Ej. 152300"></label>
       </div>
       <datalist id="talleresUsados"></datalist>
-      <label class="check" id="fCaja" hidden><input id="deCaja" type="checkbox" checked> Se pagó con dinero de la caja (se resta del saldo)</label>
+      <div id="fPago" hidden>
+        <div class="lbl-campo">¿Con qué se pagó?</div>
+        <div class="seg pago" role="group" aria-label="Con qué se pagó" id="pago">
+          <button type="button" data-v="caja" aria-pressed="true">Dinero de la caja</button>
+          <button type="button" data-v="dueno" aria-pressed="false">Bolsa del dueño</button>
+          <button type="button" data-v="otro" aria-pressed="false">Otro</button>
+        </div>
+        <p class="ayuda" id="pagoAyuda"></p>
+      </div>
       <label>Nota (opcional)<input id="nota" type="text" maxlength="140" placeholder="Ej. vuelta de la tarde"></label>
       <div class="acciones">
         <button class="btn" type="submit" id="guardar">Guardar</button>
@@ -156,6 +166,23 @@
   <section class="card">
     <div class="top"><h2>Deudas de choferes</h2><span class="sub">Pendiente por cobrar</span></div>
     <div class="deudas" id="deudas"></div>
+  </section>
+  </div>
+
+  <div class="vista" data-vista="pagos" hidden>
+  <section class="card">
+    <div class="top"><h2 id="pgTit">Lo que pagué de mi bolsa</h2><span class="sub">Para recuperarlo de las cuentas</span></div>
+    <div class="totales">
+      <div class="tot"><span>Pagado</span><b class="num" id="pgPagado">$0</b></div>
+      <div class="tot"><span>Recuperado</span><b class="num in" id="pgRecup">$0</b></div>
+      <div class="tot"><span>Por recuperar</span><b class="num dueno" id="pgPend">$0</b></div>
+    </div>
+    <p class="ayuda">Los gastos y reparaciones marcados como <b>Bolsa del dueño</b> no se restan del saldo. Cuando saques ese dinero de la caja, registra una <b>Recuperación</b>: se resta del saldo y baja lo que falta por recuperar.</p>
+    <div class="acciones">
+      <button class="btn chico" type="button" id="pgRecuperar">Registrar recuperación</button>
+      <button class="btn sec chico" type="button" id="pgNuevo">+ Registrar un pago de mi bolsa</button>
+    </div>
+    <div class="reps" id="pgLista"></div>
   </section>
   </div>
 
@@ -231,11 +258,12 @@
     <button type="button" data-v="registros"><svg viewBox="0 0 24 24" aria-hidden="true" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M9 4h6M8 3h8a1 1 0 0 1 1 1v1h1.5A1.5 1.5 0 0 1 20 6.5v13a1.5 1.5 0 0 1-1.5 1.5h-13A1.5 1.5 0 0 1 4 19.5v-13A1.5 1.5 0 0 1 5.5 5H7V4a1 1 0 0 1 1-1zM8 11h8M8 15h5"/></svg><span>Registros</span><i class="badge" hidden></i></button>
     <button type="button" data-v="balances"><svg viewBox="0 0 24 24" aria-hidden="true" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M4 20V10M10 20V4M16 20v-7M22 20H2"/></svg><span>Balances</span><i class="badge" hidden></i></button>
     <button type="button" data-v="deudas"><svg viewBox="0 0 24 24" aria-hidden="true" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><circle cx="9" cy="8" r="3.5"/><path d="M2.5 20a6.5 6.5 0 0 1 13 0M17 8h5M19.5 5.5v5"/></svg><span>Deudas</span><i class="badge" hidden></i></button>
+    <button type="button" data-v="pagos"><svg viewBox="0 0 24 24" aria-hidden="true" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M19 7V5.5A1.5 1.5 0 0 0 17.5 4h-12A2.5 2.5 0 0 0 3 6.5v11A2.5 2.5 0 0 0 5.5 20h13a1.5 1.5 0 0 0 1.5-1.5V15M3 6.5A2.5 2.5 0 0 0 5.5 9h13A1.5 1.5 0 0 1 20 10.5V11M21 11h-4a2 2 0 0 0 0 4h4z"/></svg><span id="tabPagos">Mis pagos</span><i class="badge" hidden></i></button>
     <button type="button" data-v="reparaciones"><svg viewBox="0 0 24 24" aria-hidden="true" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M14.7 6.3a4 4 0 0 0-5.4 5.2L3.5 17.3a1.8 1.8 0 0 0 2.6 2.6l5.8-5.8a4 4 0 0 0 5.2-5.4l-2.6 2.6-2.3-.6-.6-2.3z"/></svg><span>Reparaciones</span><i class="badge" hidden></i></button>
   </nav>
 </div>
 
-<script src="config.js?v=6"></script>
-<script src="app.js?v=6"></script>
+<script src="config.js?v=7"></script>
+<script src="app.js?v=7"></script>
 </body>
 </html>

@@ -15,14 +15,22 @@ const diaCorto = new Intl.DateTimeFormat("es-MX", { weekday: "short", day: "nume
 const mesLargo = new Intl.DateTimeFormat("es-MX", { month: "long", year: "numeric" });
 const AYUDA = {
   ingreso: "Dinero que entró a la caja: la cuenta del día, un viaje especial, etc.",
-  gasto: "Dinero que salió de la caja: diésel, refacciones, sueldo, etc.",
+  gasto: "Lo que se pagó: diésel, refacciones, sueldo, etc. Si lo pagó el dueño de su bolsa, márcalo abajo.",
   adeudo: "Cuando el chofer no entregó la cuenta o la entregó incompleta. Lo que sí entregó se suma al saldo y la diferencia queda como deuda del chofer.",
   abono: "Cuando el chofer paga (todo o una parte) de lo que debe. Se suma al saldo y baja su deuda.",
-  reparacion: "Reparación o servicio de la camioneta. Queda en la relación de reparaciones y, si se pagó de la caja, se resta del saldo."
+  reparacion: "Reparación o servicio de la camioneta. Queda en la relación de reparaciones y, si se pagó de la caja, se resta del saldo.",
+  reembolso: "Dinero que sale de la caja para devolverle al dueño lo que pagó de su bolsa. Se resta del saldo y baja lo que falta por recuperar."
 };
-// Saldo: entradas y pagos de deuda suman; gastos y reparaciones pagadas de la caja restan; las deudas no tocan el saldo hasta que se pagan
+const AYUDA_PAGO = {
+  caja: "Se resta del saldo disponible.",
+  dueno: "No se resta del saldo. Queda en Mis pagos para que el dueño lo recupere después de las cuentas.",
+  otro: "No se resta del saldo y no queda pendiente de recuperar."
+};
+// Saldo: entradas y pagos de deuda suman; gastos y reparaciones pagadas de la caja restan; las deudas no tocan el saldo hasta que se pagan.
+// Lo que el dueño paga de su bolsa no sale de la caja; sale hasta que lo recupera (reembolso).
 const ENTRA = t => t === "ingreso" || t === "abono";
-const SALE = m => m.tipo === "gasto" || (m.tipo === "reparacion" && m.deCaja !== false);
+const DEL_DUENO = m => (m.tipo === "gasto" || m.tipo === "reparacion") && m.pagoDueno === true;
+const SALE = m => !DEL_DUENO(m) && (m.tipo === "gasto" || m.tipo === "reembolso" || (m.tipo === "reparacion" && m.deCaja !== false));
 
 /* ---------- almacenamiento local ---------- */
 const LS = {
@@ -35,7 +43,7 @@ let servidor = LS.get("cam-datos", []);         // última copia confirmada por 
 let cola = LS.get("cam-cola", []);              // cambios aún no enviados
 let actualizado = LS.get("cam-actualizado", null);
 let movs = [];
-let periodo = "mes", tipo = "ingreso", editId = null, borrando = null, repTodas = false;
+let periodo = "mes", tipo = "ingreso", pagoCon = "caja", editId = null, borrando = null, repTodas = false;
 let modoBal = "semana", paso = 0;               // paso: 0 = la semana o el mes actual, -1 = el anterior, etc.
 let rangoDesde = hoyISO(new Date(Date.now() - 29 * 864e5)), rangoHasta = hoyISO();
 let enviando = false, sinConexion = false, errorSync = "";
@@ -56,6 +64,7 @@ function normalizar(m) {
   const o = { ...m };
   for (const k of ["monto", "km", "esperado", "entregado"]) o[k] = o[k] === "" || o[k] == null ? undefined : Number(o[k]);
   o.deCaja = !(o.deCaja === false || o.deCaja === "false" || o.deCaja === "FALSE");
+  o.pagoDueno = o.pagoDueno === true || o.pagoDueno === "true" || o.pagoDueno === "TRUE";
   for (const k of Object.keys(o)) if (o[k] === "" || o[k] === undefined) delete o[k];
   return o;
 }
@@ -165,15 +174,25 @@ function ponerTipo(t, sel) {
   $("#fChofer").hidden = !conChofer;
   $("#fCuenta").hidden = !cuentaNueva;
   $("#fMonto").hidden = cuentaNueva;
-  $("#lblMonto").textContent = t === "adeudo" ? "Monto de la deuda" : t === "abono" ? "Cuánto pagó" : "Monto (MXN)";
+  $("#lblMonto").textContent = t === "adeudo" ? "Monto de la deuda" : t === "abono" ? "Cuánto pagó" : t === "reembolso" ? "Cuánto se recupera" : "Monto (MXN)";
   $("#fTaller").hidden = t !== "reparacion";
-  $("#fCaja").hidden = t !== "reparacion";
-  $("#lblConcepto").textContent = conChofer ? "Concepto (opcional)" : t === "reparacion" ? "Qué se reparó o qué servicio se hizo" : "Concepto";
-  $("#categoria").placeholder = t === "adeudo" ? "Cuenta del día" : t === "abono" ? "Pago de deuda"
+  $("#fPago").hidden = t !== "gasto" && t !== "reparacion";
+  ponerPago(pagoCon);
+  $("#lblConcepto").textContent = conChofer || t === "reembolso" ? "Concepto (opcional)" : t === "reparacion" ? "Qué se reparó o qué servicio se hizo" : "Concepto";
+  $("#categoria").placeholder = t === "adeudo" ? "Cuenta del día" : t === "abono" ? "Pago de deuda" : t === "reembolso" ? "Recuperación del dueño"
     : t === "reparacion" ? "Ej. Cambio de balatas, afinación, clutch" : "Ej. Cuenta del día, Diésel, Cambio de aceite";
   $("#ayuda").textContent = AYUDA[t];
   actualizarCalc();
   llenarSugerencias();
+}
+
+// ¿Con qué se pagó? (gastos y reparaciones). "Otro" solo existe para reparaciones.
+function ponerPago(v) {
+  if (v === "otro" && tipo !== "reparacion") v = "caja";
+  pagoCon = v;
+  $('#pago [data-v="otro"]').hidden = tipo !== "reparacion";
+  document.querySelectorAll("#pago button").forEach(b => b.setAttribute("aria-pressed", String(b.dataset.v === v)));
+  $("#pagoAyuda").textContent = AYUDA_PAGO[v];
 }
 
 function actualizarCalc() {
@@ -279,7 +298,7 @@ function partir(desde, hasta, unidad) {
 
 function balance(desde, hasta, unidad) {
   const a = hoyISO(desde), z = hoyISO(hasta);
-  const b = { entregado: 0, gastos: 0, deuda: 0, abonos: 0, choferes: new Map(), porCat: {}, grupos: partir(desde, hasta, unidad) };
+  const b = { entregado: 0, gastos: 0, deuda: 0, abonos: 0, dueno: 0, choferes: new Map(), porCat: {}, grupos: partir(desde, hasta, unidad) };
   for (const m of movs) {
     if (m.fecha < a || m.fecha > z) continue;
     const g = b.grupos.find(x => m.fecha <= x.z);
@@ -288,10 +307,11 @@ function balance(desde, hasta, unidad) {
     else if (SALE(m)) {
       b.gastos += m.monto; g.gastos += m.monto;
       // Todas las reparaciones se agrupan en una sola barra para comparar contra los demás gastos
-      const k = m.tipo === "reparacion" ? "~reparaciones" : (clave(m.categoria) || "sin concepto");
-      if (!b.porCat[k]) b.porCat[k] = { n: m.tipo === "reparacion" ? "Reparaciones" : (m.categoria || "Sin concepto"), v: 0 };
+      const k = m.tipo === "reparacion" ? "~reparaciones" : m.tipo === "reembolso" ? "~reembolsos" : (clave(m.categoria) || "sin concepto");
+      if (!b.porCat[k]) b.porCat[k] = { n: m.tipo === "reparacion" ? "Reparaciones" : m.tipo === "reembolso" ? "Recuperado por el dueño" : (m.categoria || "Sin concepto"), v: 0 };
       b.porCat[k].v += m.monto;
     }
+    else if (DEL_DUENO(m)) b.dueno += m.monto;
     else if (m.tipo === "adeudo") {
       b.deuda += m.monto; g.deuda += m.monto;
       const k = clave(m.chofer);
@@ -339,7 +359,7 @@ function renderBalance() {
   $("#sNeto").textContent = (b.neto > 0 ? "+" : "") + fmt.format(b.neto);
   $("#sNeto").className = "num " + (b.neto < 0 ? "out" : "in");
   $("#sDetalle").textContent = (b.abonos ? "Cuentas " + fmt.format(b.entregado) + " + pagos de deuda " + fmt.format(b.abonos) : "Entregado " + fmt.format(b.entregado))
-    + " − gastos " + fmt.format(b.gastos);
+    + " − gastos " + fmt.format(b.gastos) + (b.dueno ? ". Aparte, el dueño pagó " + fmt.format(b.dueno) + " de su bolsa." : "");
 
   const cats = Object.values(b.porCat).sort((a, c) => c.v - a.v);
   const bars = $("#bars"); bars.textContent = "";
@@ -389,6 +409,51 @@ function renderBalance() {
   }
 }
 
+/* ---------- lo que pagó el dueño de su bolsa y lo que ha recuperado ---------- */
+function calcularDueno() {
+  let pagado = 0, recuperado = 0;
+  for (const m of movs) { if (DEL_DUENO(m)) pagado += m.monto; else if (m.tipo === "reembolso") recuperado += m.monto; }
+  return { pagado: r2(pagado), recuperado: r2(recuperado), pendiente: r2(pagado - recuperado) };
+}
+function renderPagos(d) {
+  $("#pgPagado").textContent = fmt.format(d.pagado);
+  $("#pgRecup").textContent = fmt.format(d.recuperado);
+  $("#pgPend").textContent = fmt.format(Math.max(0, d.pendiente));
+  $("#pgRecuperar").disabled = d.pendiente <= 0;
+  const items = movs.filter(m => DEL_DUENO(m) || m.tipo === "reembolso");
+  // lo que faltaba por recuperar después de cada movimiento (se calcula del más viejo al más nuevo)
+  let acum = 0; const quedaba = new Map();
+  for (const m of [...items].reverse()) { acum = r2(acum + (m.tipo === "reembolso" ? -m.monto : m.monto)); quedaba.set(m.id, acum); }
+  const cont = $("#pgLista"); cont.textContent = "";
+  if (!items.length) {
+    const p = document.createElement("p"); p.className = "vacio";
+    p.textContent = "Aún no hay pagos del dueño. Al registrar un gasto o una reparación, elige «Bolsa del dueño».";
+    cont.append(p); return;
+  }
+  for (const m of items) {
+    const rec = m.tipo === "reembolso";
+    const row = document.createElement("div"); row.className = "rep";
+    const f = document.createElement("div"); f.className = "f";
+    const d0 = parseISO(m.fecha);
+    const dd = document.createElement("b"); dd.textContent = d0.getDate();
+    f.append(dd, document.createTextNode(mesAbrev(d0) + " " + String(d0.getFullYear()).slice(2)));
+    const tx = document.createElement("div");
+    const nm = document.createElement("div"); nm.className = "nm";
+    nm.textContent = rec ? (m.categoria || "Recuperación del dueño") : (m.tipo === "reparacion" ? "Reparación: " : "") + (m.categoria || "Sin concepto");
+    const det = document.createElement("div"); det.className = "det";
+    det.textContent = [rec ? "Recuperado de la caja" : "Pagado de su bolsa", m.nota,
+      "pendiente después: " + fmt.format(Math.max(0, quedaba.get(m.id)))].filter(Boolean).join(" · ");
+    tx.append(nm, det);
+    const der = document.createElement("div"); der.className = "der";
+    const mm = document.createElement("span"); mm.className = "m " + (rec ? "in" : "dueno");
+    mm.textContent = (rec ? "−" : "+") + fmt.format(m.monto); der.append(mm);
+    const mini = document.createElement("div"); mini.className = "mini";
+    const ed = document.createElement("button"); ed.textContent = "Editar"; ed.onclick = () => editar(m);
+    mini.append(ed); der.append(mini);
+    row.append(f, tx, der); cont.append(row);
+  }
+}
+
 // Relación de reparaciones: todas, sin importar el periodo elegido
 function renderReparaciones() {
   const reps = movs.filter(m => m.tipo === "reparacion");
@@ -421,7 +486,7 @@ function renderReparaciones() {
     if (partes.length) { const det = document.createElement("div"); det.className = "det"; det.textContent = partes.join(" · "); tx.append(det); }
     const der = document.createElement("div"); der.className = "der";
     const mm = document.createElement("span"); mm.className = "m"; mm.textContent = fmt.format(m.monto); der.append(mm);
-    if (!SALE(m)) { const fu = document.createElement("span"); fu.className = "fuera"; fu.textContent = "fuera de caja"; der.append(fu); }
+    if (!SALE(m)) { const fu = document.createElement("span"); fu.className = "fuera"; fu.textContent = m.pagoDueno ? "pagó el dueño" : "fuera de caja"; der.append(fu); }
     const mini = document.createElement("div"); mini.className = "mini";
     const ed = document.createElement("button"); ed.textContent = "Editar"; ed.onclick = () => editar(m);
     mini.append(ed); der.append(mini);
@@ -450,6 +515,10 @@ function render() {
   const deben = deudas.filter(c => c.pendiente > 0).length;
   const aviso = $("#tabs [data-v=\"deudas\"] .badge");
   aviso.hidden = !deben; aviso.textContent = deben;
+  const dueno = calcularDueno();
+  $("#tDuenoWrap").hidden = dueno.pendiente <= 0;
+  $("#tDueno").textContent = fmt.format(dueno.pendiente);
+  renderPagos(dueno);
   renderBalance();
   renderReparaciones();
 
@@ -470,19 +539,21 @@ function render() {
     const b = document.createElement("span"); b.className = "num"; b.textContent = (neto >= 0 ? "+" : "") + fmt.format(neto);
     h.append(a, b); dia.append(h);
     for (const m of items) {
-      const row = document.createElement("div"); row.className = "mov " + m.tipo + (m.tipo === "reparacion" && !SALE(m) ? " fuera" : "");
+      const row = document.createElement("div"); row.className = "mov " + m.tipo + (DEL_DUENO(m) ? " dueno" : m.tipo === "reparacion" && !SALE(m) ? " fuera" : "");
       const st = document.createElement("span"); st.className = "st";
       const tx = document.createElement("div"); tx.className = "tx";
       const cat = document.createElement("div"); cat.className = "cat";
       cat.textContent = m.tipo === "adeudo" ? "Deuda: " + (m.categoria || "Cuenta del día")
         : m.tipo === "abono" ? (m.categoria || "Pago de deuda")
-        : m.tipo === "reparacion" ? "Reparación: " + (m.categoria || "Sin descripción") : (m.categoria || "Sin concepto");
+        : m.tipo === "reparacion" ? "Reparación: " + (m.categoria || "Sin descripción")
+        : m.tipo === "reembolso" ? (m.categoria || "Recuperación del dueño") : (m.categoria || "Sin concepto");
       const det = document.createElement("div"); det.className = "det";
       const partes = [];
       if (m.chofer) partes.push("Chofer " + m.chofer);
       if (m.taller) partes.push(m.taller);
       if (m.km) partes.push(kmFmt.format(m.km) + " km");
-      if (m.tipo === "reparacion" && !SALE(m)) partes.push("no salió de la caja");
+      if (DEL_DUENO(m)) partes.push("lo pagó el dueño, por recuperar");
+      else if (m.tipo === "reparacion" && !SALE(m)) partes.push("no salió de la caja");
       if (m.tipo === "adeudo" && m.esperado) partes.push("debía " + fmt.format(m.esperado) + ", entregó " + fmt.format(m.entregado || 0));
       if (m.nota) partes.push(m.nota);
       if (m.autor) partes.push("Registró " + m.autor);
@@ -491,8 +562,8 @@ function render() {
       const der = document.createElement("div"); der.className = "der";
       const mm = document.createElement("span");
       if (m.tipo === "adeudo") { mm.className = "m debe"; mm.textContent = "Debe " + fmt.format(m.monto); }
-      else if (m.tipo === "reparacion") { mm.className = "m " + (SALE(m) ? "out" : ""); mm.textContent = (SALE(m) ? "−" : "") + fmt.format(m.monto); }
-      else { mm.className = "m " + (m.tipo === "gasto" ? "out" : "in"); mm.textContent = (m.tipo === "gasto" ? "−" : "+") + fmt.format(m.monto); }
+      else if (ENTRA(m.tipo)) { mm.className = "m in"; mm.textContent = "+" + fmt.format(m.monto); }
+      else { mm.className = "m " + (SALE(m) ? "out" : ""); mm.textContent = (SALE(m) ? "−" : "") + fmt.format(m.monto); }
       der.append(mm);
       const mini = document.createElement("div"); mini.className = "mini";
       if (borrando === m.id) {
@@ -519,10 +590,11 @@ function msg(t, cls, sel = "#msg") { const e = $(sel); e.textContent = t; e.clas
 
 function editar(m) {
   editId = m.id; borrando = null;
+  pagoCon = DEL_DUENO(m) ? "dueno" : m.tipo === "reparacion" && m.deCaja === false ? "otro" : "caja";
   ponerTipo(m.tipo, m.categoria || "");
   document.querySelectorAll(".tipo button").forEach(b => b.disabled = b.dataset.v !== m.tipo);
   $("#monto").value = m.monto; $("#fecha").value = m.fecha; $("#nota").value = m.nota || ""; $("#chofer").value = m.chofer || "";
-  $("#taller").value = m.taller || ""; $("#km").value = m.km || ""; $("#deCaja").checked = m.deCaja !== false;
+  $("#taller").value = m.taller || ""; $("#km").value = m.km || "";
   $("#formTitulo").textContent = "Editar movimiento";
   $("#guardar").textContent = "Guardar cambios";
   $("#cancelar").hidden = false; msg("");
@@ -533,7 +605,7 @@ function editar(m) {
 function limpiar() {
   editId = null;
   for (const id of ["#monto", "#nota", "#categoria", "#chofer", "#esperado", "#entregado", "#taller", "#km"]) $(id).value = "";
-  $("#deCaja").checked = true;
+  pagoCon = "caja";
   $("#fecha").value = hoyISO();
   document.querySelectorAll(".tipo button").forEach(b => b.disabled = false);
   $("#formTitulo").textContent = "Registrar movimiento";
@@ -557,7 +629,7 @@ $("#form").addEventListener("submit", ev => {
   const conChofer = tipo === "adeudo" || tipo === "abono";
   if (conChofer && !chofer) { msg("Escribe el nombre del chofer.", "err"); $("#chofer").focus(); return; }
   if (!/^\d{4}-\d{2}-\d{2}$/.test(fecha)) { msg("Elige la fecha del movimiento.", "err"); $("#fecha").focus(); return; }
-  if (!conChofer && !concepto) { msg("Escribe el concepto del movimiento.", "err"); $("#categoria").focus(); return; }
+  if (!conChofer && tipo !== "reembolso" && !concepto) { msg("Escribe el concepto del movimiento.", "err"); $("#categoria").focus(); return; }
 
   const previo = editId ? movs.find(m => m.id === editId) : null;
   const base = { fecha, nota, creado: previo ? previo.creado : new Date().toISOString() };
@@ -584,25 +656,27 @@ $("#form").addEventListener("submit", ev => {
   } else {
     const monto = num("#monto");
     if (!(monto > 0)) { msg("Escribe un monto mayor a cero.", "err"); $("#monto").focus(); return; }
-    const doc = { ...base, id: editId || nuevoId(), tipo, monto, categoria: concepto || (tipo === "abono" ? "Pago de deuda" : tipo === "adeudo" ? "Cuenta del día" : "") };
+    const doc = { ...base, id: editId || nuevoId(), tipo, monto, categoria: concepto || (tipo === "abono" ? "Pago de deuda" : tipo === "adeudo" ? "Cuenta del día" : tipo === "reembolso" ? "Recuperación del dueño" : "") };
     if (conChofer) doc.chofer = chofer;
     else if (previo && previo.chofer) doc.chofer = previo.chofer;
     if (tipo === "reparacion") {
       doc.taller = limpio($("#taller").value);
       const km = parseInt($("#km").value, 10);
       if (km > 0) doc.km = km;
-      doc.deCaja = $("#deCaja").checked;
+      doc.deCaja = pagoCon === "caja";
     }
+    if ((tipo === "gasto" || tipo === "reparacion") && pagoCon === "dueno") doc.pagoDueno = true;
     if (previo && previo.tipo === "adeudo") {
       if (previo.ligado) doc.ligado = previo.ligado;
       if (previo.esperado) { doc.esperado = previo.esperado; doc.entregado = previo.entregado || 0; }
     }
     cambiar([{ tipo: "mov.guardar", mov: doc }]);
-    const que = { ingreso: "entrada de ", gasto: "gasto de ", adeudo: "deuda de ", abono: "pago de ", reparacion: "reparación de " }[tipo];
-    msg((editId ? "Cambios guardados: " : "Guardado: ") + que + fmt.format(monto) + (conChofer ? " (" + doc.chofer + ")." : "."), "ok");
+    const que = { ingreso: "entrada de ", gasto: "gasto de ", adeudo: "deuda de ", abono: "pago de ", reparacion: "reparación de ", reembolso: "recuperación de " }[tipo];
+    msg((editId ? "Cambios guardados: " : "Guardado: ") + que + fmt.format(monto) + (conChofer ? " (" + doc.chofer + ")." : doc.pagoDueno ? ", pagado por el dueño." : "."), "ok");
   }
   const t = tipo; limpiar(); ponerTipo(t, "");
 });
+document.querySelectorAll("#pago button").forEach(b => b.onclick = () => ponerPago(b.dataset.v));
 $("#cancelar").onclick = () => { limpiar(); ponerTipo("ingreso", ""); msg(""); render(); };
 document.querySelectorAll(".tipo button").forEach(b => b.onclick = () => { if (!editId) { ponerTipo(b.dataset.v, ""); msg(""); } });
 $("#repMas").onclick = () => { repTodas = !repTodas; renderReparaciones(); };
@@ -624,7 +698,7 @@ document.querySelectorAll("#periodo button").forEach(b => b.onclick = () => {
 });
 
 /* ---------- secciones (menú inferior y ajustes) ---------- */
-const VISTAS = ["registros", "balances", "deudas", "reparaciones", "ajustes"];
+const VISTAS = ["registros", "balances", "deudas", "pagos", "reparaciones", "ajustes"];
 function irA(v) {
   if (!VISTAS.includes(v)) v = "registros";
   document.querySelectorAll(".vista").forEach(s => s.hidden = s.dataset.vista !== v);
@@ -635,6 +709,15 @@ function irA(v) {
 }
 document.querySelectorAll("#tabs button").forEach(b => b.onclick = () => irA(b.dataset.v));
 $("#btnAjustes").onclick = () => irA("ajustes");
+$("#pgRecuperar").onclick = () => {
+  limpiar(); ponerTipo("reembolso", ""); msg("");
+  $("#monto").value = Math.max(0, calcularDueno().pendiente);
+  irA("registros"); $("#monto").focus({ preventScroll: true });
+};
+$("#pgNuevo").onclick = () => {
+  limpiar(); pagoCon = "dueno"; ponerTipo("gasto", ""); msg(""); irA("registros");
+  $("#categoria").focus({ preventScroll: true });
+};
 $("#repNueva").onclick = () => {
   limpiar(); ponerTipo("reparacion", ""); msg(""); irA("registros");
   $("#categoria").focus({ preventScroll: true });
@@ -670,6 +753,10 @@ function mostrarApp() {
   $("#rol").textContent = ROLES[sesion.rol] || sesion.rol;
   $("#ajSesion").textContent = "Entraste como " + sesion.usuario + " (" + (ROLES[sesion.rol] || sesion.rol) + ").";
   $("#adminForm").hidden = sesion.rol !== "dueno";
+  const soyDueno = sesion.rol === "dueno";
+  $("#tabPagos").textContent = soyDueno ? "Mis pagos" : "Pagos dueño";
+  $("#pgTit").textContent = soyDueno ? "Lo que pagué de mi bolsa" : "Lo que pagó el dueño";
+  $("#tDuenoLbl").textContent = soyDueno ? "Te falta recuperar" : "Por devolver al dueño";
   irA(LS.get("cam-vista", sesion.rol === "dueno" ? "balances" : "registros"));
   recalcular(); llenarSugerencias(); render();
   enviar();

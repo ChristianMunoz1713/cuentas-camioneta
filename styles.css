@@ -9,7 +9,7 @@ img { max-width: 100%; }
   --bg: #F1F4F3; --surface: #FFFFFF; --ink: #14211F; --muted: #5A6A67; --line: #D6DEDC;
   --accent: #E8AC00; --accent-ink: #1A1400;
   --sign-bg: #101716; --sign-fg: #FFC21A; --sign-dim: #8A9A96;
-  --ingreso: #1C7A4E; --gasto: #B3261E; --deuda: #A8650A; --soft: #E6ECEA;
+  --ingreso: #1C7A4E; --gasto: #B3261E; --deuda: #A8650A; --dueno: #2F64B5; --soft: #E6ECEA;
   --display: "Barlow Condensed", "Arial Narrow", "Roboto Condensed", sans-serif;
   --body: "Barlow", "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
 }
@@ -17,12 +17,12 @@ img { max-width: 100%; }
   --bg: #0E1413; --surface: #162020; --ink: #E5EDEB; --muted: #94A4A1; --line: #273433;
   --accent: #F5BF26; --accent-ink: #1A1400;
   --sign-bg: #070B0A; --sign-fg: #FFC83A; --sign-dim: #7D8D8A;
-  --ingreso: #4FC48C; --gasto: #F27A6F; --deuda: #F0B04A; --soft: #1D2928; color-scheme: dark } }
+  --ingreso: #4FC48C; --gasto: #F27A6F; --deuda: #F0B04A; --dueno: #7FB2F5; --soft: #1D2928; color-scheme: dark } }
 :root[data-theme="dark"] {
   --bg: #0E1413; --surface: #162020; --ink: #E5EDEB; --muted: #94A4A1; --line: #273433;
   --accent: #F5BF26; --accent-ink: #1A1400;
   --sign-bg: #070B0A; --sign-fg: #FFC83A; --sign-dim: #7D8D8A;
-  --ingreso: #4FC48C; --gasto: #F27A6F; --deuda: #F0B04A; --soft: #1D2928; color-scheme: dark }
+  --ingreso: #4FC48C; --gasto: #F27A6F; --deuda: #F0B04A; --dueno: #7FB2F5; --soft: #1D2928; color-scheme: dark }
 
 html, body { background: var(--bg); color: var(--ink); }
 body { font-family: var(--body); font-size: 16px; line-height: 1.45; }
@@ -183,11 +183,11 @@ input:focus-visible, button:focus-visible { outline: 2px solid var(--accent); ou
   background: var(--surface); color: var(--muted); cursor: pointer; padding: 0; }
 .icono svg { width: 22px; height: 22px; }
 .icono[aria-pressed="true"] { background: var(--ink); color: var(--surface); border-color: var(--ink); }
-.tabs { position: fixed; left: 0; right: 0; bottom: 0; z-index: 10; display: grid; grid-template-columns: repeat(4, 1fr);
+.tabs { position: fixed; left: 0; right: 0; bottom: 0; z-index: 10; display: grid; grid-template-columns: repeat(5, 1fr);
   background: var(--surface); border-top: 1px solid var(--line); box-shadow: 0 -2px 10px rgba(0,0,0,.06);
   padding: 6px max(8px, env(safe-area-inset-left, 0px)) calc(6px + env(safe-area-inset-bottom, 0px)) max(8px, env(safe-area-inset-right, 0px)); }
 .tabs button { position: relative; display: grid; justify-items: center; gap: 2px; border: 0; background: none; cursor: pointer;
-  color: var(--muted); font: 600 .74rem var(--body); padding: 6px 2px; border-radius: 8px; }
+  color: var(--muted); font: 600 .68rem var(--body); padding: 6px 0; min-width: 0; border-radius: 8px; }
 .tabs svg { width: 24px; height: 24px; }
 .tabs button[aria-current] { color: var(--ink); }
 .tabs button[aria-current] svg { color: var(--accent); }
@@ -209,3 +209,13 @@ input:focus-visible, button:focus-visible { outline: 2px solid var(--accent); ou
 .ajustes h3 { margin: 0 0 6px; font: 700 1.05rem var(--display); text-transform: uppercase; letter-spacing: .06em; }
 .ajustes .bloque { display: grid; gap: 10px; padding-top: 14px; border-top: 1px solid var(--line); }
 .ajustes .bloque:first-child { border-top: 0; padding-top: 0; }
+
+/* Pagos del dueño de su bolsa */
+.dueno { color: var(--dueno); }
+.sign .meta b.dueno { color: #8FC7FF; }
+.lbl-campo { font-size: .85rem; font-weight: 600; color: var(--muted); margin-bottom: 4px; }
+.seg.pago { margin-bottom: 4px; }
+.seg.pago button[aria-pressed="true"][data-v="dueno"] { background: var(--dueno); color: #fff; }
+.seg.tipo button[aria-pressed="true"][data-v="reembolso"] { background: var(--dueno); color: #fff; }
+.mov.dueno .st { background: repeating-linear-gradient(180deg, var(--dueno) 0 6px, transparent 6px 10px); }
+.mov.reembolso .st { background: var(--dueno); }
